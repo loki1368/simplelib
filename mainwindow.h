@@ -8,6 +8,7 @@
 #include <QSettings>
 #include "quazip/quazip.h"
 #include <QRunnable>
+#include "settingsdialog.h"
 
 namespace Ui {
 class MainWindow;
@@ -53,10 +54,15 @@ private slots:
     void OpenBook();
     void ExportSelection();
 
+    void on_actionPreferences_triggered();
+
+    void on_actionExit_triggered();
+
 private:
     QString m_sSettingsFile;
     QString m_sDBFile;
     QSettings* m_sSettings;
+    SettingsDialog* m_Settings = NULL;
     Ui::MainWindow *ui;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");

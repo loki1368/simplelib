@@ -34,28 +34,31 @@
     <rect>
      <x>40</x>
      <y>10</y>
-     <width>73</width>
-     <height>18</height>
+     <width>98</width>
+     <height>13</height>
     </rect>
    </property>
    <property name="text">
-    <string>TextLabel</string>
+    <string>Каталог с данными</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>40</x>
+     <x>70</x>
      <y>40</y>
-     <width>73</width>
-     <height>18</height>
+     <width>65</width>
+     <height>13</height>
     </rect>
    </property>
    <property name="text">
-    <string>TextLabel</string>
+    <string>База данных</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_3">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>40</x>
@@ -66,6 +69,39 @@
    </property>
    <property name="text">
     <string>TextLabel</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="comboBox">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>40</y>
+     <width>321</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="currentIndex">
+    <number>1</number>
+   </property>
+   <item>
+    <property name="text">
+     <string>MySQL</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>SQLite</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>10</y>
+     <width>321</width>
+     <height>20</height>
+    </rect>
    </property>
   </widget>
  </widget>

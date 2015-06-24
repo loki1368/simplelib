@@ -30,6 +30,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_sSettingsFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.ini";
     m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";
     m_sSettings = new QSettings(m_sSettingsFile, QSettings::NativeFormat);
+    m_Settings = new SettingsDialog(this);
 }
 
 MainWindow::~MainWindow()
@@ -399,4 +400,14 @@ void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
     menu->addAction("Открыть книгу", this, SLOT(OpenBook()));
     menu->addAction("Экспорт", this, SLOT(ExportSelection()));
     menu->popup(ui->tableWidget->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::on_actionPreferences_triggered()
+{
+    m_Settings->showNormal();
+}
+
+void MainWindow::on_actionExit_triggered()
+{
+    this->close();
 }

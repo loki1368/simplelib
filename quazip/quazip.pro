@@ -45,12 +45,13 @@ unix:!symbian {
 }
 
 win32 {
-    headers.path=$$PREFIX/include/quazip
-    headers.files=$$HEADERS
-    target.path=$$PREFIX/lib
-    INSTALLS += headers target
-    # workaround for qdatetime.h macro bug
-    DEFINES += NOMINMAX
+headers.path=$$PREFIX/include/quazip
+headers.files=$$HEADERS
+target.path=$$PREFIX/lib
+INSTALLS += headers target
+# workaround for qdatetime.h macro bug
+DEFINES += NOMINMAX
+LIBS += -LC:\Users\vysotskya\Documents\Projects\simplelib\simplelib\quazip\zlib\static32\zlibstat.lib #C:\Qt\5.4\mingw491_32\lib\zdll.lib C:\Qt\Qt5.0.1\5.0.1\mingw47_32\lib\zlib.lib
 }
 
 
@@ -70,7 +71,7 @@ symbian {
     CONFIG += staticlib
     CONFIG += debug_and_release
 
-    LIBS += -lezip
+    LIBS += -lezip -L./zlib
 
     #Export headers to SDK Epoc32/include directory
     exportheaders.sources = $$HEADERS
