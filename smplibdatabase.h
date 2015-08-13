@@ -13,7 +13,7 @@
 class SmpLibDatabase
 {
 public:
-    static SmpLibDatabase* instance(QString dbPath)
+    static SmpLibDatabase* instance(QString dbPath, QString Engine)
     {
         static QMutex mutex;
         if (!m_Instance)
@@ -21,7 +21,7 @@ public:
             mutex.lock();
 
             if (!m_Instance)
-                m_Instance = new SmpLibDatabase(dbPath);
+                m_Instance = new SmpLibDatabase(dbPath, Engine);
 
             mutex.unlock();
         }
@@ -38,7 +38,7 @@ public:
         mutex.unlock();
     }
 
-    SmpLibDatabase(QString dbPath);
+    SmpLibDatabase(QString dbPath, QString Engine);
     ~SmpLibDatabase();
 
     //LibFiles

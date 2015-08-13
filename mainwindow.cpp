@@ -27,9 +27,11 @@ MainWindow::MainWindow(QWidget *parent) :
     QDir Dir;
     if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
-    m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";
+    m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";    
     m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");
-    m_Settings = new SettingsDialog(this);    
+    m_sDbEngine = m_sSettings->value("DbEngine", "0").toString();
+
+    m_DlgSettings = new SettingsDialog(this);
 }
 
 MainWindow::~MainWindow()
@@ -73,7 +75,7 @@ void MainWindow::on_pushButton_clicked()
     QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(5);
+    thread_pool->setMaxThreadCount(1);
 
     foreach(QFileInfo fi, List)
     {
@@ -108,7 +110,8 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
     QElapsedTimer* timer_author = new QElapsedTimer();
     QElapsedTimer* timer_book = new QElapsedTimer();
     int books_processed = 0;
-    SmpLibDatabase* db = new SmpLibDatabase("");
+
+    SmpLibDatabase* db = new SmpLibDatabase(m_sDBFile, m_sDbEngine);
 
     foreach(QuaZipFileInfo fi2, ZipFI)
     {
@@ -241,7 +244,7 @@ void MainWindow::fillAuthorList(QString qsFilter)
 
     ui->listWidget->clear();
 
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile);
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
     QList<SmpLibDatabase::AuthorStruct> AuthorList = db->GetAuthorList(qsFilter);
     foreach (SmpLibDatabase::AuthorStruct Author, AuthorList)
     {
@@ -274,7 +277,7 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
         ui->tableWidget->setColumnWidth(2,0);
     }
 
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile);
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
     QList<SmpLibDatabase::BookStruct> BookList = db->GetBookList(qsFilter, qsAuthor);
 
     foreach (SmpLibDatabase::BookStruct Book, BookList)
@@ -346,7 +349,7 @@ void MainWindow::OpenBook()
 {
     int book_id = ui->tableWidget->item(rowPopup, 2)->text().toInt();//get book id from column 2
 
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile);
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
     SmpLibDatabase::BookStruct* Book = db->GetBook(book_id);
     SmpLibDatabase::LibFileStruct* LibFile = db->GetLibFile(Book->libfile_id);
 
@@ -404,7 +407,7 @@ void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
 
 void MainWindow::on_actionPreferences_triggered()
 {
-    m_Settings->showNormal();
+    m_DlgSettings->showNormal();
 }
 
 void MainWindow::on_actionExit_triggered()

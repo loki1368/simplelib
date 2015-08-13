@@ -1,17 +1,34 @@
 #include "smplibdatabase.h"
 #include <QMap>
 #include <QThread>
+#include <QMessageLogContext>
+#include <QSqlError>
+#include <QDebug>
 
 SmpLibDatabase* SmpLibDatabase::m_Instance = 0;
 
-SmpLibDatabase::SmpLibDatabase(QString /*dbPath*/)
+SmpLibDatabase::SmpLibDatabase(QString dbPath, QString Engine)
 {
-      /*db = QSqlDatabase::addDatabase("QSQLITE");*/
-    QString strThread = QString("%1").arg((long)QThread::currentThread());
-    db = QSqlDatabase::addDatabase("QMYSQL",strThread);
-    db.setDatabaseName("smplib");
-    db.setUserName("smplib");
-    db.setPassword("smplib");
+    static QMap<QString, QString> DbEngines;
+    DbEngines["1"] = "QSQLITE";
+    DbEngines["0"] = "QMYSQL";
+
+    if(Engine=="0")//QMYSQL
+    {
+        QString strThread = QString("%1").arg((long)QThread::currentThread());
+        db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
+        db.setDatabaseName("smplib");
+        db.setUserName("smplib");
+        db.setPassword("smplib");
+    }
+    else if(Engine=="1")//QSQLITE
+    {
+        QString strThread = QString("%1").arg((long)QThread::currentThread());
+        db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
+        db.setDatabaseName(dbPath);
+        db.setUserName("smplib");
+        db.setPassword("smplib");
+    }
     db.open();
     //prepare database if first run
     CreateTables(false);/*if not exist*/
@@ -57,7 +74,7 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                              "`name_in_archive` VARCHAR(255)"
                                );
 
-    QSqlQuery query(db);
+    QSqlQuery query(db);    
     foreach(QString sTable, lstTables)
     {
         QString qsQuery = "";
@@ -68,8 +85,8 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
         query.prepare(qsQuery.arg(sTable, tblMap.value(sTable)));
         query.exec();
         db.commit();
-        //QString qs = query.executedQuery();
-        //qt_message_output(QtDebugMsg, (const char*)qs.data());
+
+        qDebug() << db.lastError().text();
     }
 }
 
@@ -139,7 +156,9 @@ bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
     query.exec();
+    qDebug() << db.lastError().text();
     query.next();
+    qDebug() << db.lastError().text();
     int rec_count = query.value(0).toInt();
     return rec_count > 0;
 }

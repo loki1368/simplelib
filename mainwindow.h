@@ -61,8 +61,9 @@ private slots:
 private:
     QString m_sSettingsFile;
     QString m_sDBFile;
+    QString m_sDbEngine;
     QSettings* m_sSettings;
-    SettingsDialog* m_Settings = NULL;
+    SettingsDialog* m_DlgSettings = NULL;
     Ui::MainWindow *ui;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
