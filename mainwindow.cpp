@@ -70,7 +70,7 @@ void MainWindow::on_pushButton_clicked()
     timer->start();
 
 
-    QString path = "/home/alexv/Tst";//ui->kurlrequester->text();
+    QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
     thread_pool->setMaxThreadCount(5);
@@ -112,6 +112,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
 
     foreach(QuaZipFileInfo fi2, ZipFI)
     {
+        if(!fi2.name.endsWith("fb2", Qt::CaseInsensitive)) continue;
         timer_parse->start();
 
         BigZip.setCurrentFile(fi2.name);
