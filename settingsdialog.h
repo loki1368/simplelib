@@ -2,6 +2,8 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QSettings>
+#include <QAbstractButton>
 
 namespace Ui {
 class SettingsDialog;
@@ -15,8 +17,14 @@ public:
     explicit SettingsDialog(QWidget *parent = 0);
     ~SettingsDialog();
 
+
+private slots:
+    void on_buttonBox_clicked(QAbstractButton *button);
+
 private:
     Ui::SettingsDialog *ui;
+    QString m_sSettingsFile;
+    QSettings* m_sSettings;
 };
 
 #endif // SETTINGSDIALOG_H

@@ -27,10 +27,9 @@ MainWindow::MainWindow(QWidget *parent) :
     QDir Dir;
     if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
-    m_sSettingsFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.ini";
     m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";
-    m_sSettings = new QSettings(m_sSettingsFile, QSettings::NativeFormat);
-    m_Settings = new SettingsDialog(this);
+    m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");
+    m_Settings = new SettingsDialog(this);    
 }
 
 MainWindow::~MainWindow()

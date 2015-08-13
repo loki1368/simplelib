@@ -71,7 +71,7 @@
     <string>TextLabel</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="comboBox">
+  <widget class="QComboBox" name="cbDbEngine">
    <property name="geometry">
     <rect>
      <x>140</x>
@@ -94,7 +94,7 @@
     </property>
    </item>
   </widget>
-  <widget class="QLineEdit" name="lineEdit">
+  <widget class="QLineEdit" name="BookPath">
    <property name="geometry">
     <rect>
      <x>140</x>
