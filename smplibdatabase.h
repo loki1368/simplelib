@@ -95,6 +95,7 @@ private:
 
     static SmpLibDatabase* m_Instance;
     void CreateTables(bool bRecreate);
+    void CreateTablesSqlite(bool bRecreate);
 };
 
 #endif // SMPLIBDATABASE_H

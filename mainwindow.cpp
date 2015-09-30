@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    //QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
+    //QTextCodec::setCodecForLocale(QTextCodec::codecForName("IBM 866"));
     QDir Dir;
     if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
@@ -210,7 +210,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
         //book is not in the database yet?
         timer_book->start();
         //add book
-        //if(!db->IsBookExist(author_id, book_title))
+        if(!db->IsBookExist(author_id, book_title))
         {
             timer_author->start();
             SmpLibDatabase::BookStruct Book;
@@ -345,6 +345,7 @@ void MainWindow::on_tableWidget_cellClicked(int row, int column)
 
 int rowPopup;
 
+
 void MainWindow::OpenBook()
 {
     int book_id = ui->tableWidget->item(rowPopup, 2)->text().toInt();//get book id from column 2
@@ -362,7 +363,7 @@ void MainWindow::OpenBook()
         QString filename = Book->name_in_archive;
         QString archname = LibFile->filename;
 
-        QString path = "";//ui->kurlrequester->text();
+        QString path = m_sSettings->value("LibPath").toString();
 
         QFile infile(path + "/" + archname);
         infile.open(QIODevice::ReadOnly);
@@ -380,6 +381,10 @@ void MainWindow::OpenBook()
         //save to temp file
         QTemporaryFile tmpFile;
         tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename);
+        /*if (!tmpFile.open())
+        {//set alternate filename if name is broken
+            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + sequence_name.trimmed() + "_" + sequence_number.trimmed() + "_" + book_title + "_" + ".fb2");
+        }*/
         if (tmpFile.open())
         {
             tmpFile.write(BookData);

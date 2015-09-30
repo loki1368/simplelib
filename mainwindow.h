@@ -24,7 +24,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
     void show();
-    void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);
+    void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);    
 
 private slots:    
 
@@ -53,6 +53,8 @@ private slots:
 
     void OpenBook();
     void ExportSelection();
+
+
 
     void on_actionPreferences_triggered();
 

@@ -20,6 +20,9 @@ SmpLibDatabase::SmpLibDatabase(QString dbPath, QString Engine)
         db.setDatabaseName("smplib");
         db.setUserName("smplib");
         db.setPassword("smplib");
+        db.open();
+        //prepare database if first run
+        CreateTables(false);/*if not exist*/
     }
     else if(Engine=="1")//QSQLITE
     {
@@ -28,10 +31,10 @@ SmpLibDatabase::SmpLibDatabase(QString dbPath, QString Engine)
         db.setDatabaseName(dbPath);
         db.setUserName("smplib");
         db.setPassword("smplib");
-    }
-    db.open();
-    //prepare database if first run
-    CreateTables(false);/*if not exist*/
+        db.open();
+        //prepare database if first run
+        CreateTablesSqlite(false);/*if not exist*/
+    }    
 }
 
 SmpLibDatabase::~SmpLibDatabase()
@@ -77,18 +80,64 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
     QSqlQuery query(db);    
     foreach(QString sTable, lstTables)
     {
+        db.transaction();
         QString qsQuery = "";
         if(bRecreate)
             qsQuery = "ALTER TABLE `%1` %2";
         else
             qsQuery = "CREATE TABLE IF NOT EXISTS `%1` (%2)";
-        query.prepare(qsQuery.arg(sTable, tblMap.value(sTable)));
+        QString qs2 = qsQuery.arg(sTable, tblMap.value(sTable));
+        query.prepare(qs2);
+
         query.exec();
         db.commit();
 
         qDebug() << db.lastError().text();
     }
 }
+
+void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
+{
+    QStringList lstTables = QStringList() << "tblAuthor"<<"tblLibFiles"<<"tblBook";
+    QMap<QString, QString> tblMap;
+    tblMap.insert("tblAuthor", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                               "`first_name` VARCHAR(50) NULL,"
+                               "`last_name` VARCHAR(100) NULL"
+                               );
+    tblMap.insert("tblLibFiles", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                             "`lib_title` VARCHAR(255) NULL,"
+                             "`filename` VARCHAR(50) NOT NULL,"
+                             "`filepath` VARCHAR(1000) NULL"
+                               );
+    tblMap.insert("tblBook", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                             "`book_title` VARCHAR(255) NULL,"
+                             "`author_id` INT(11) NOT NULL,"
+                             "`genre` VARCHAR(20),"
+                             "`sequence_name` VARCHAR(50),"
+                             "`sequence_number` VARCHAR(10),"
+                             "`libfile_id` INT(11),"
+                             "`name_in_archive` VARCHAR(255)"
+                               );
+
+    QSqlQuery query(db);
+    foreach(QString sTable, lstTables)
+    {
+        db.transaction();
+        QString qsQuery = "";
+        if(bRecreate)
+            qsQuery = "ALTER TABLE `%1` %2";
+        else
+            qsQuery = "CREATE TABLE IF NOT EXISTS `%1` (%2)";
+        QString qs2 = qsQuery.arg(sTable, tblMap.value(sTable));
+        query.prepare(qs2);
+
+        query.exec();
+        db.commit();
+
+        qDebug() << db.lastError().text();
+    }
+}
+
 
 bool SmpLibDatabase::IsLibFileExist(LibFileStruct LibFile)
 {
@@ -165,12 +214,15 @@ bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
 
 void SmpLibDatabase::AddAuthor(AuthorStruct Author)
 {
+    db.transaction();
     QSqlQuery query(db);
     query.prepare("INSERT INTO tblAuthor (first_name, last_name) VALUES (:first_name, :last_name);");
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
 
     query.exec();
+    db.commit();
+    qDebug() << db.lastError().text();
 }
 
 int SmpLibDatabase::GetAuthorIdByName(AuthorStruct Author)
