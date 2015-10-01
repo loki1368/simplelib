@@ -26,39 +26,21 @@ public:
     void show();
     void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);    
 
-private slots:    
-
-    void on_pushButton_clicked();
-
-    void on_MainWindow_customContextMenuRequested(const QPoint &pos);
-
+private slots:
 
     void on_lineEdit_returnPressed();
-
-    void on_listWidget_itemChanged(QListWidgetItem *item);
-
-    void on_listWidget_itemSelectionChanged();
-
-    void on_listWidget_doubleClicked(const QModelIndex &index);
-
-    void on_tableWidget_pressed(const QModelIndex &index);
-
-    void on_tableWidget_cellPressed(int row, int column);
-
-    void on_MainWindow_iconSizeChanged(const QSize &iconSize);
-
+    void on_listWidget_itemSelectionChanged();    
     void on_tableWidget_cellClicked(int row, int column);
-
     void on_tableWidget_customContextMenuRequested(const QPoint &pos);
 
-    void OpenBook();
-    void ExportSelection();
-
-
+    void on_BookGridRow_OpenBook();
+    void on_BookGridRow_ExportSelection();
 
     void on_actionPreferences_triggered();
 
     void on_actionExit_triggered();
+
+    void on_actionUpdateDB_triggered();
 
 private:
     QString m_sSettingsFile;
@@ -71,9 +53,6 @@ private:
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
 
     QString timeConversion(int msecs);
-
-
-
 };
 
 

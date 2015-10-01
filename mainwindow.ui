@@ -18,27 +18,23 @@
     <normaloff>1421796279_editor_books_library_collection-128.png</normaloff>1421796279_editor_books_library_collection-128.png</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QPushButton" name="pushButton">
-    <property name="geometry">
-     <rect>
-      <x>540</x>
-      <y>550</y>
-      <width>121</width>
-      <height>27</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Сканировать</string>
-    </property>
-   </widget>
    <widget class="QListWidget" name="listWidget">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>40</y>
       <width>481</width>
-      <height>501</height>
+      <height>571</height>
      </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="mouseTracking">
+     <bool>true</bool>
     </property>
     <property name="movement">
      <enum>QListView::Static</enum>
@@ -66,7 +62,7 @@
       <x>510</x>
       <y>40</y>
       <width>1021</width>
-      <height>501</height>
+      <height>571</height>
      </rect>
     </property>
     <property name="contextMenuPolicy">
@@ -105,7 +101,16 @@
     </property>
     <addaction name="actionAbout"/>
    </widget>
+   <widget class="QMenu" name="menuDatabase">
+    <property name="title">
+     <string>Database</string>
+    </property>
+    <addaction name="actionUpdateDB"/>
+    <addaction name="actionRescanDB"/>
+    <addaction name="actionClearDB"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuDatabase"/>
    <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
@@ -122,6 +127,21 @@
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionUpdateDB">
+   <property name="text">
+    <string>Update</string>
+   </property>
+  </action>
+  <action name="actionRescanDB">
+   <property name="text">
+    <string>Rescan all</string>
+   </property>
+  </action>
+  <action name="actionClearDB">
+   <property name="text">
+    <string>Clear DB</string>
    </property>
   </action>
  </widget>

@@ -63,33 +63,6 @@ static void aBigZipRun(QFileInfo fi, MainWindow* Parent)
     Parent->ParseBigZipFunc(fi,Parent);
 }
 
-void MainWindow::on_pushButton_clicked()
-{
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-    QApplication::processEvents();
-
-    QElapsedTimer* timer = new QElapsedTimer();
-    timer->start();
-
-
-    QString path = m_sSettings->value("LibPath").toString();
-    QDir Dir(path);
-    QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(1);
-
-    foreach(QFileInfo fi, List)
-    {
-        QtConcurrent::run(aBigZipRun, fi, this);
-        //ParseBigZipFunc(fi, this);
-    }    
-    thread_pool->waitForDone();
-
-    fillAuthorList();
-
-    QMessageBox::information(this, "Заняло времени:", timeConversion(timer->elapsed()));
-    delete timer;
-    QApplication::restoreOverrideCursor();
-}
 
 int time_parse = 0;
 int time_author = 0;
@@ -346,7 +319,7 @@ void MainWindow::on_tableWidget_cellClicked(int row, int column)
 int rowPopup;
 
 
-void MainWindow::OpenBook()
+void MainWindow::on_BookGridRow_OpenBook()
 {
     int book_id = ui->tableWidget->item(rowPopup, 2)->text().toInt();//get book id from column 2
 
@@ -395,7 +368,7 @@ void MainWindow::OpenBook()
     }
 }
 
-void MainWindow::ExportSelection()
+void MainWindow::on_BookGridRow_ExportSelection()
 {
 }
 
@@ -405,8 +378,8 @@ void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
     rowPopup = indexPopup.row();
 
     QMenu *menu=new QMenu(this);
-    menu->addAction("Открыть книгу", this, SLOT(OpenBook()));
-    menu->addAction("Экспорт", this, SLOT(ExportSelection()));
+    menu->addAction("Открыть книгу", this, SLOT(on_BookGridRow_OpenBook()));
+    menu->addAction("Экспорт", this, SLOT(on_BookGridRow_ExportSelection()));
     menu->popup(ui->tableWidget->viewport()->mapToGlobal(pos));
 }
 
@@ -418,4 +391,32 @@ void MainWindow::on_actionPreferences_triggered()
 void MainWindow::on_actionExit_triggered()
 {
     this->close();
+}
+
+void MainWindow::on_actionUpdateDB_triggered()
+{
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    QApplication::processEvents();
+
+    QElapsedTimer* timer = new QElapsedTimer();
+    timer->start();
+
+
+    QString path = m_sSettings->value("LibPath").toString();
+    QDir Dir(path);
+    QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
+    thread_pool->setMaxThreadCount(1);
+
+    foreach(QFileInfo fi, List)
+    {
+        QtConcurrent::run(aBigZipRun, fi, this);
+        //ParseBigZipFunc(fi, this);
+    }
+    thread_pool->waitForDone();
+
+    fillAuthorList();
+
+    QMessageBox::information(this, "Заняло времени:", timeConversion(timer->elapsed()));
+    delete timer;
+    QApplication::restoreOverrideCursor();
 }
