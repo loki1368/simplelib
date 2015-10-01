@@ -24,6 +24,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
     void show();
+    void resizeEvent(QResizeEvent* event);
     void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);    
 
 private slots:

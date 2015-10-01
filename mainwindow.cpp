@@ -39,6 +39,16 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+   QMainWindow::resizeEvent(event);
+   // Your code here.
+   QRect r = ui->gridLayoutWidget->geometry();
+   r.setBottom(event->size().height() - r.top() - 20);
+   r.setRight(event->size().width() - r.left());
+   ui->gridLayoutWidget->setGeometry(r);
+}
+
 QString MainWindow::timeConversion(int msecs)
 {
     QString formattedTime;
