@@ -49,3 +49,6 @@ win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/build-quazip-D
 else:win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/build-quazip-Desktop-Debug/debug/libquazip.a
 else:win32:!win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$PWD/build-quazip-Desktop-Debug/release/quazip.lib
 else:win32:!win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/build-quazip-Desktop-Debug/debug/quazip.lib
+
+RESOURCES += \
+    resource.qrc

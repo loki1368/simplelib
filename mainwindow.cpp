@@ -73,33 +73,6 @@ static void aBigZipRun(QFileInfo fi, MainWindow* Parent)
     Parent->ParseBigZipFunc(fi,Parent);
 }
 
-void MainWindow::on_pushButton_clicked()
-{
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-    QApplication::processEvents();
-
-    QElapsedTimer* timer = new QElapsedTimer();
-    timer->start();
-
-
-    QString path = m_sSettings->value("LibPath").toString();
-    QDir Dir(path);
-    QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(10);
-
-    foreach(QFileInfo fi, List)
-    {
-        QtConcurrent::run(aBigZipRun, fi, this);
-        //ParseBigZipFunc(fi, this);
-    }    
-    thread_pool->waitForDone();
-
-    fillAuthorList();
-
-    QMessageBox::information(this, "Заняло времени:", timeConversion(timer->elapsed()));
-    delete timer;
-    QApplication::restoreOverrideCursor();
-}
 
 int time_parse = 0;
 int time_author = 0;
