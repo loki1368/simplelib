@@ -75,7 +75,7 @@ void MainWindow::on_pushButton_clicked()
     QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(1);
+    thread_pool->setMaxThreadCount(10);
 
     foreach(QFileInfo fi, List)
     {
