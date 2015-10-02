@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QSettings>
 #include <QAbstractButton>
+#include <QWidget>
 
 namespace Ui {
 class SettingsDialog;
@@ -16,6 +17,7 @@ class SettingsDialog : public QDialog
 public:
     explicit SettingsDialog(QWidget *parent = 0);
     ~SettingsDialog();
+    void resizeEvent(QResizeEvent* event);
 
 
 private slots:
@@ -24,7 +26,7 @@ private slots:
 private:
     Ui::SettingsDialog *ui;
     QString m_sSettingsFile;
-    QSettings* m_sSettings;
+    QSettings* m_sSettings;    
 };
 
 #endif // SETTINGSDIALOG_H

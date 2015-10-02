@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
 #include <QStandardPaths>
+#include <QWidget>
 
 
 SettingsDialog::SettingsDialog(QWidget *parent) :
@@ -18,6 +19,16 @@ SettingsDialog::~SettingsDialog()
 {
     delete ui;
 }
+
+void SettingsDialog::resizeEvent(QResizeEvent* event)
+{
+   //SettingsDialog::resizeEvent(event);
+   // Your code here.
+   //QRect r = ui->gridLayout->geometry();
+   //r.setRight(event->size().width() - r.left() - 20);
+   //ui->gridLayout->setGeometry(r);
+}
+
 
 
 void SettingsDialog::on_buttonBox_clicked(QAbstractButton *button)
