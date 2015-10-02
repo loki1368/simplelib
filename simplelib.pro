@@ -11,6 +11,8 @@ greaterThan(QT_MAJOR_VERSION, 4){
     DEFINES += HAVE_QT5
 }
 
+CONFIG += c++11
+
 TARGET = simplelib
 TEMPLATE = app
 

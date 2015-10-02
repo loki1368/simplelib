@@ -77,10 +77,12 @@ public:
         QString sequence_number;
         int libfile_id;
         QString name_in_archive;
+        int book_size;
     }BookStruct;
     void AddBook(BookStruct Book);
     QList<BookStruct> GetBookList(QString qsFilter, QString qsAuthor);
     BookStruct* GetBook(int BookId);
+    void DropTables();
 
 private:
     QSqlDatabase db;
@@ -95,7 +97,7 @@ private:
 
     static SmpLibDatabase* m_Instance;
     void CreateTables(bool bRecreate);
-    void CreateTablesSqlite(bool bRecreate);
+    void CreateTablesSqlite(bool bRecreate);    
 };
 
 #endif // SMPLIBDATABASE_H

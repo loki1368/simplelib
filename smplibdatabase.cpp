@@ -74,7 +74,8 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                              "CONSTRAINT `fkLibFile`"
                              "FOREIGN KEY `fkLibFile` (`libfile_id`)"
                              "REFERENCES `tblLibFiles` (`id`),"
-                             "`name_in_archive` VARCHAR(255)"
+                             "`name_in_archive` VARCHAR(255),"
+                             "`book_size` INT(11) NOT NULL"
                                );
 
     QSqlQuery query(db);    
@@ -116,7 +117,8 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
                              "`sequence_name` VARCHAR(50),"
                              "`sequence_number` VARCHAR(10),"
                              "`libfile_id` INT(11),"
-                             "`name_in_archive` VARCHAR(255)"
+                             "`name_in_archive` VARCHAR(255),"
+                             "`book_size` INT(11) NOT NULL"
                                );
 
     QSqlQuery query(db);
@@ -135,6 +137,23 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
         db.commit();
 
         qDebug() << db.lastError().text();
+    }
+}
+
+void SmpLibDatabase::DropTables()
+{
+    QStringList lstTables = QStringList() << "tblBook"<<"tblAuthor"<<"tblLibFiles";
+    QSqlQuery query(db);
+    foreach(QString sTable, lstTables)
+    {
+        db.transaction();
+        QString qsQuery = "";
+        qsQuery = "SET FOREIGN_KEY_CHECKS = 0; TRUNCATE TABLE `%1`; SET FOREIGN_KEY_CHECKS = 1;";
+        QString qs2 = qsQuery.arg(sTable);
+        query.prepare(qs2);
+
+        query.exec();
+        db.commit();
     }
 }
 
@@ -276,7 +295,8 @@ void SmpLibDatabase::AddBook(BookStruct Book)
 {
 
     QSqlQuery query(db);
-    query.prepare("INSERT INTO tblBook (author_id, book_title, genre, sequence_name, sequence_number, libfile_id, name_in_archive) VALUES (:author_id, :book_title, :genre, :sequence_name, :sequence_number, :libfile_id, :name_in_archive);");
+    query.prepare("INSERT INTO tblBook (author_id, book_title, genre, sequence_name, sequence_number, libfile_id, name_in_archive, book_size) "
+                  "VALUES (:author_id, :book_title, :genre, :sequence_name, :sequence_number, :libfile_id, :name_in_archive, :book_size);");
     query.bindValue(":author_id", Book.author_id);
     query.bindValue(":book_title", Book.book_title);
     query.bindValue(":genre", Book.genre);
@@ -284,9 +304,8 @@ void SmpLibDatabase::AddBook(BookStruct Book)
     query.bindValue(":sequence_number", Book.sequence_number);
     query.bindValue(":libfile_id", Book.libfile_id);
     query.bindValue(":name_in_archive", Book.name_in_archive);
-    query.exec();
-    //QString qs = query.executedQuery();
-    //qt_message_output(QtDebugMsg, (const char*)qs.data());
+    query.bindValue(":book_size", Book.book_size);
+    query.exec();    
 }
 
 QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, QString qsAuthor)
@@ -309,6 +328,7 @@ QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, 
         Book->sequence_number = Rec.value("sequence_number").toString();
         Book->libfile_id = Rec.value("libfile_id").toInt();
         Book->name_in_archive = Rec.value("name_in_archive").toString();
+        Book->book_size = Rec.value("book_size").toInt();
 
         ListA->push_back(*Book);
     }
@@ -334,6 +354,7 @@ SmpLibDatabase::BookStruct* SmpLibDatabase::GetBook(int book_id)
         Book->sequence_number = Rec.value("sequence_number").toString();
         Book->libfile_id = Rec.value("libfile_id").toInt();
         Book->name_in_archive = Rec.value("name_in_archive").toString();
+        Book->book_size = Rec.value("book_size").toInt();
     }
     return Book;
 }

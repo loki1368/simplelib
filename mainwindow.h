@@ -43,6 +43,8 @@ private slots:
 
     void on_actionUpdateDB_triggered();
 
+    void on_actionClearDB_triggered();
+
 private:
     QString m_sSettingsFile;
     QString m_sDBFile;

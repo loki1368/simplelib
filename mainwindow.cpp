@@ -110,8 +110,8 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
 
         QXmlStreamReader reader(BookData);
 
-        QString first_name("");
-        QString last_name("");
+        QList<QString> first_name;
+        QList<QString> last_name;
         QString book_title("");
         QString genre("");
         QString sequence_name("");
@@ -128,14 +128,15 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
                continue;
            }
 
-            if (reader.isStartElement() && reader.name() == "first-name" && first_name.isEmpty())
+            if (reader.isStartElement() && reader.name() == "first-name")
             {
-
-                first_name = reader.readElementText();
+                QString s = reader.readElementText().replace(QRegularExpression("\p{P}"), s);
+                first_name.append(s.trimmed());
             }
-            else if (reader.isStartElement() && reader.name() == "last-name" && last_name.isEmpty())
+            else if (reader.isStartElement() && reader.name() == "last-name")
             {
-                last_name = reader.readElementText();
+                QString s = reader.readElementText().replace(QRegularExpression("\p{P}"), s);
+                last_name.append(s.trimmed());
             }
             else if (reader.isStartElement() && reader.name() == "book-title" && book_title.isEmpty())
             {
@@ -173,12 +174,22 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
         //SmpLibDatabase* db = new SmpLibDatabase("");//SmpLibDatabase::instance(Parent->m_sDBFile);
 
         //add author
-        SmpLibDatabase::AuthorStruct Author = {0,first_name,last_name};
-        if(!db->IsAuthorExist(Author))
+        QList<SmpLibDatabase::AuthorStruct> Authors;
+        for(int i=0;i<last_name.size();i++)
+            Authors.append({0,(first_name.size()>=i)?first_name[i]:"",last_name[i]});
+        if(Authors.length() == 0)//no author
+            Authors.append({0,"","Без автора"});
+        //because more than 2 artists is unnatural
+        int i = 0;
+        QList<int> author_id;
+        for(const auto &Author: Authors)
         {
-            db->AddAuthor(Author);
+            if(!db->IsAuthorExist(Author))
+            {
+                db->AddAuthor(Author);
+            }
+            author_id.append(db->GetAuthorIdByName(Author));
         }
-        int author_id = db->GetAuthorIdByName(Author);
 
         //add filepath into the database
         //filepath is not yet in the database?
@@ -193,17 +204,18 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
         //book is not in the database yet?
         timer_book->start();
         //add book
-        if(!db->IsBookExist(author_id, book_title))
+        if(!db->IsBookExist(author_id[0], book_title))
         {
             timer_author->start();
             SmpLibDatabase::BookStruct Book;
-            Book.author_id = author_id;
+            Book.author_id = author_id[0];
             Book.book_title = book_title;
             Book.genre = genre;
             Book.sequence_name = sequence_name;
             Book.sequence_number = sequence_number;
             Book.libfile_id = libfile_id;
             Book.name_in_archive = fi2.name;
+            Book.book_size = fi2.uncompressedSize;
             db->AddBook(Book);
             time_author += timer_author->elapsed();
         }
@@ -231,7 +243,13 @@ void MainWindow::fillAuthorList(QString qsFilter)
     QList<SmpLibDatabase::AuthorStruct> AuthorList = db->GetAuthorList(qsFilter);
     foreach (SmpLibDatabase::AuthorStruct Author, AuthorList)
     {
-         const QString sAuthorLine = Author.last_name + ", " + Author.first_name;
+         QString sAuthorLine;
+         if(Author.last_name != "" && Author.first_name != "")
+                 sAuthorLine = Author.last_name + ", " + Author.first_name;
+         else if(Author.last_name == "")
+             sAuthorLine = Author.first_name;
+         else
+             sAuthorLine = Author.last_name;
          QListWidgetItem* item = new QListWidgetItem(sAuthorLine);
          item->setData(1,Author.id);
          ui->listWidget->addItem(item);
@@ -247,17 +265,19 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
 
     ui->tableWidget->clearContents();
     ui->tableWidget->setRowCount(0);
-    if(ui->tableWidget->columnCount() != 3)
+    if(ui->tableWidget->columnCount() != 4)
     {
         QTableWidgetItem* header = NULL;        
         ui->tableWidget->insertColumn(0);
         ui->tableWidget->setColumnWidth(0,400);
         ui->tableWidget->insertColumn(1);
         ui->tableWidget->setColumnWidth(0,500);
-        ui->tableWidget->setHorizontalHeaderLabels( QStringList()<<QString("Название книги")<<QString("Серия"));
-
         ui->tableWidget->insertColumn(2);
-        ui->tableWidget->setColumnWidth(2,0);
+        ui->tableWidget->setColumnWidth(2,100);
+        ui->tableWidget->setHorizontalHeaderLabels( QStringList()<<QString("Название книги")<<QString("Серия")<<QString("Размер"));
+
+        ui->tableWidget->insertColumn(3);
+        ui->tableWidget->setColumnWidth(3,0);
     }
 
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
@@ -269,6 +289,7 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
          QString book_title = Book.book_title;
          QString sequence_name = Book.sequence_name;
          QString sequence_number = Book.sequence_number;
+         int book_size = Book.book_size;
 
          QTableWidgetItem* item = new QTableWidgetItem();
          item->setText(book_title);
@@ -287,8 +308,12 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
          ui->tableWidget->setItem(0, 1, item);
 
          item = new QTableWidgetItem();
-         item->setText(book_id);
+         item->setText(QString::number(book_size/1024) + "Kb");
          ui->tableWidget->setItem(0, 2, item);
+
+         item = new QTableWidgetItem();
+         item->setText(book_id);
+         ui->tableWidget->setItem(0, 3, item);
     }
     ui->tableWidget->sortByColumn(1);
 
@@ -331,7 +356,7 @@ int rowPopup;
 
 void MainWindow::on_BookGridRow_OpenBook()
 {
-    int book_id = ui->tableWidget->item(rowPopup, 2)->text().toInt();//get book id from column 2
+    int book_id = ui->tableWidget->item(rowPopup, 3)->text().toInt();//get book id from column 2
 
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
     SmpLibDatabase::BookStruct* Book = db->GetBook(book_id);
@@ -415,7 +440,7 @@ void MainWindow::on_actionUpdateDB_triggered()
     QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(1);
+    thread_pool->setMaxThreadCount(10);
 
     foreach(QFileInfo fi, List)
     {
@@ -428,5 +453,22 @@ void MainWindow::on_actionUpdateDB_triggered()
 
     QMessageBox::information(this, "Заняло времени:", timeConversion(timer->elapsed()));
     delete timer;
+
+    fillAuthorList();
     QApplication::restoreOverrideCursor();
+}
+
+void MainWindow::on_actionClearDB_triggered()
+{
+    QMessageBox::StandardButton reply =
+            QMessageBox::question(this, "Внимание!",
+                          "Выбранное действие приведет к полной очистке базы данных. Вы уверены?",
+                          QMessageBox::Yes|QMessageBox::No);
+    if(reply == QMessageBox::Yes)
+    {
+        SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
+        db->DropTables();
+        fillAuthorList();
+        fillBookList("");
+    }
 }

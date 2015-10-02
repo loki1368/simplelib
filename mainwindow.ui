@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>944</width>
-    <height>644</height>
+    <width>942</width>
+    <height>642</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -55,7 +55,7 @@
         <bool>true</bool>
        </property>
        <property name="frameShape">
-        <enum>QFrame::Panel</enum>
+        <enum>QFrame::StyledPanel</enum>
        </property>
        <property name="frameShadow">
         <enum>QFrame::Plain</enum>
@@ -86,7 +86,7 @@
         <enum>Qt::CustomContextMenu</enum>
        </property>
        <property name="frameShape">
-        <enum>QFrame::Box</enum>
+        <enum>QFrame::StyledPanel</enum>
        </property>
        <property name="frameShadow">
         <enum>QFrame::Plain</enum>
@@ -110,8 +110,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>944</width>
-     <height>21</height>
+     <width>942</width>
+     <height>28</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
