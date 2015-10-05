@@ -30,7 +30,7 @@ void SettingsDialog::resizeEvent(QResizeEvent* /*event*/)
 
    QRect r2 = ui->buttonBox->geometry();
    r2.setRight(this->size().width() - r2.left());
-   r2.setTop(this->size().height() - 40);
+   r2.setTop(this->size().height() - 50);
    r2.setBottom(this->size().height());
    ui->buttonBox->setGeometry(r2);
 }
@@ -43,6 +43,7 @@ void SettingsDialog::on_buttonBox_clicked(QAbstractButton *button)
     {
         m_sSettings->setValue("LibPath", ui->BookPath->text());
         m_sSettings->setValue("DbEngine", ui->cbDbEngine->currentIndex());
+        m_sSettings->setValue("ExportPath", ui->ExportPath->text());
         m_sSettings->sync();
     }
     this->close();

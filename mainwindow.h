@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 #include <QFileInfo>
-//#include <kurlrequester.h>
+#include "smplibdatabase.h"
 #include "ui_mainwindow.h"
 #include <QSettings>
 #include "quazip/quazip.h"
@@ -55,6 +55,7 @@ private:
     QTemporaryFile* m_tmpFile = nullptr;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
+    void GetBookFromLib(int book_id, QByteArray* BookData, SmpLibDatabase::BookStruct* Book, SmpLibDatabase::LibFileStruct* LibFile);
 
     QString timeConversion(int msecs);
 };

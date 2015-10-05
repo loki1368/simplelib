@@ -9,7 +9,6 @@
 #include <QXmlStreamReader>
 #include <QtWidgets>
 #include <QtXmlPatterns/QXmlQuery>
-#include "smplibdatabase.h"
 #include <QElapsedTimer>
 #include <QMessageBox>
 #include "parsebigzip.h"
@@ -354,21 +353,14 @@ void MainWindow::on_tableWidget_cellClicked(int row, int column)
 
 int rowPopup;
 
-
-void MainWindow::on_BookGridRow_OpenBook()
+void MainWindow::GetBookFromLib(int book_id, QByteArray* BookData,SmpLibDatabase::BookStruct* Book, SmpLibDatabase::LibFileStruct* LibFile)
 {
-    int book_id = ui->tableWidget->item(rowPopup, 3)->text().toInt();//get book id from column 2
-
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
-    SmpLibDatabase::BookStruct* Book = db->GetBook(book_id);
-    SmpLibDatabase::LibFileStruct* LibFile = db->GetLibFile(Book->libfile_id);
+    Book = db->GetBook(book_id);
+    LibFile = db->GetLibFile(Book->libfile_id);
 
     if (Book != NULL)
     {
-
-        QString book_title = Book->book_title;
-        QString sequence_name = Book->sequence_name;
-        QString sequence_number = Book->sequence_number;
         QString filename = Book->name_in_archive;
         QString archname = LibFile->filename;
 
@@ -384,9 +376,24 @@ void MainWindow::on_BookGridRow_OpenBook()
         QuaZipFile file(&BigZip);
 
         file.open(QIODevice::ReadOnly);
-        QByteArray BookData = file.readAll();
+
+        BookData = new QByteArray(file.readAll());
         file.close();
         BigZip.close();
+    }
+}
+
+void MainWindow::on_BookGridRow_OpenBook()
+{
+    int book_id = ui->tableWidget->item(rowPopup, 3)->text().toInt();//get book id from column 2
+    QByteArray BookData;
+    SmpLibDatabase::BookStruct Book;
+    SmpLibDatabase::LibFileStruct LibFile;
+    GetBookFromLib(book_id, &BookData, &Book, &LibFile);
+    if(BookData.size() > 0)
+    {
+        QString filename = Book.name_in_archive;
+        //QString archname = LibFile->filename;
         //save to temp file
         if(m_tmpFile != nullptr){delete m_tmpFile; m_tmpFile = nullptr;}
         m_tmpFile = new QTemporaryFile();
@@ -395,7 +402,7 @@ void MainWindow::on_BookGridRow_OpenBook()
         filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
         if(filename3 != filename)
         {//set alternate filename if name is broken
-            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + sequence_name.trimmed() + "_" + sequence_number.trimmed() + "_" + book_title + "_" + ".fb2");
+            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
         }
         else
             m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
@@ -411,6 +418,38 @@ void MainWindow::on_BookGridRow_OpenBook()
 
 void MainWindow::on_BookGridRow_ExportSelection()
 {
+    QItemSelectionModel *select = ui->tableWidget->selectionModel();
+    for(QModelIndex &li: select->selectedRows())
+    {
+        int book_id = ui->tableWidget->item(li.row(), 3)->text().toInt();//get book id from column 2
+        QByteArray* BookData = NULL;
+        SmpLibDatabase::BookStruct* Book = NULL;
+        SmpLibDatabase::LibFileStruct* LibFile = NULL;
+        GetBookFromLib(book_id, BookData, Book, LibFile);
+        if(BookData->size() > 0)
+        {
+            QString filename = Book->name_in_archive;
+            //QString archname = LibFile->filename;
+            //save to temp file
+            QString sFile;
+            QString filename2 = "";
+            QString filename3 = filename;
+            filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
+            if(filename3 != filename)
+            {//set alternate filename if name is broken
+                sFile = QString(QDir::tempPath() + "/" + Book->sequence_name.trimmed() + "_" + Book->sequence_number.trimmed() + "_" + Book->book_title + "_" + ".fb2");
+            }
+            else
+                sFile = QDir::tempPath() + "/" + filename3;
+
+            QFile tmpFile(sFile);
+            if (tmpFile.open(QIODevice::WriteOnly))
+            {
+                tmpFile.write(*BookData);
+                tmpFile.close();
+            }
+        }
+    }
 }
 
 void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
