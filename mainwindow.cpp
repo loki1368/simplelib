@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    //QTextCodec::setCodecForLocale(QTextCodec::codecForName("IBM 866"));
+    //QTextCodec::setCodecForLocale(QTextCodec::codecForName("IBM 866"));    
     QDir Dir;
     if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
@@ -386,20 +386,25 @@ void MainWindow::on_BookGridRow_OpenBook()
         QByteArray BookData = file.readAll();
         file.close();
         BigZip.close();
-        //save to temp file
-        QTemporaryFile tmpFile;
-        tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename);
-        /*if (!tmpFile.open())
+        //save to temp file        
+        QTemporaryFile tmpFile;        
+        QString filename2 = "";
+        QString filename3 = filename;
+        filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
+        if(filename3 != filename)
         {//set alternate filename if name is broken
             tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + sequence_name.trimmed() + "_" + sequence_number.trimmed() + "_" + book_title + "_" + ".fb2");
-        }*/
+        }
+        else
+            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
+
         if (tmpFile.open())
         {
             tmpFile.write(BookData);
             tmpFile.close();
         }
-        QDesktopServices::openUrl(QUrl(tmpFile.fileName()));
-        sleep(5);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(tmpFile.fileName()));
+        tmpFile.deleteLater();
     }
 }
 
