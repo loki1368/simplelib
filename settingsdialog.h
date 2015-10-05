@@ -4,7 +4,7 @@
 #include <QDialog>
 #include <QSettings>
 #include <QAbstractButton>
-#include <QWidget>
+//#include <QWidget>
 
 namespace Ui {
 class SettingsDialog;
@@ -22,7 +22,6 @@ public:
 
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
-
 private:
     Ui::SettingsDialog *ui;
     QString m_sSettingsFile;

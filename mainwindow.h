@@ -50,8 +50,9 @@ private:
     QString m_sDBFile;
     QString m_sDbEngine;
     QSettings* m_sSettings;
-    SettingsDialog* m_DlgSettings = NULL;
+    SettingsDialog* m_DlgSettings = nullptr;
     Ui::MainWindow *ui;
+    QTemporaryFile* m_tmpFile = nullptr;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
 

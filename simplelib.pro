@@ -54,3 +54,5 @@ else:win32:!win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$PWD/buil
 
 RESOURCES += \
     resource.qrc
+
+DISTFILES +=

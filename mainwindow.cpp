@@ -37,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+    if(m_tmpFile){delete m_tmpFile; m_tmpFile = nullptr;}
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -386,25 +387,25 @@ void MainWindow::on_BookGridRow_OpenBook()
         QByteArray BookData = file.readAll();
         file.close();
         BigZip.close();
-        //save to temp file        
-        QTemporaryFile tmpFile;        
+        //save to temp file
+        if(m_tmpFile != nullptr){delete m_tmpFile; m_tmpFile = nullptr;}
+        m_tmpFile = new QTemporaryFile();
         QString filename2 = "";
         QString filename3 = filename;
         filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
         if(filename3 != filename)
         {//set alternate filename if name is broken
-            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + sequence_name.trimmed() + "_" + sequence_number.trimmed() + "_" + book_title + "_" + ".fb2");
+            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + sequence_name.trimmed() + "_" + sequence_number.trimmed() + "_" + book_title + "_" + ".fb2");
         }
         else
-            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
+            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
 
-        if (tmpFile.open())
+        if (m_tmpFile->open())
         {
-            tmpFile.write(BookData);
-            tmpFile.close();
+            m_tmpFile->write(BookData);
         }
-        QDesktopServices::openUrl(QUrl::fromLocalFile(tmpFile.fileName()));
-        tmpFile.deleteLater();
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_tmpFile->fileName()));
+        //m_tmpFile->deleteLater();
     }
 }
 
@@ -425,6 +426,7 @@ void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
 
 void MainWindow::on_actionPreferences_triggered()
 {
+
     m_DlgSettings->showNormal();
 }
 
