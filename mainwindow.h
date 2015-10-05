@@ -30,8 +30,7 @@ public:
 private slots:
 
     void on_lineEdit_returnPressed();
-    void on_listWidget_itemSelectionChanged();    
-    void on_tableWidget_cellClicked(int row, int column);
+    void on_listWidget_itemSelectionChanged();        
     void on_tableWidget_customContextMenuRequested(const QPoint &pos);
 
     void on_BookGridRow_OpenBook();
@@ -55,7 +54,7 @@ private:
     QTemporaryFile* m_tmpFile = nullptr;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
-    void GetBookFromLib(int book_id, QByteArray* BookData, SmpLibDatabase::BookStruct* Book, SmpLibDatabase::LibFileStruct* LibFile);
+    void GetBookFromLib(int book_id, QByteArray& BookData, SmpLibDatabase::BookStruct& Book, SmpLibDatabase::LibFileStruct& LibFile);
 
     QString timeConversion(int msecs);
 };

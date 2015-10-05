@@ -78,7 +78,7 @@ int time_parse = 0;
 int time_author = 0;
 int time_book = 0;
 
-void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
+void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 {
     QFile infile(fi.absoluteFilePath());
     infile.open(QIODevice::ReadOnly);
@@ -130,13 +130,11 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
 
             if (reader.isStartElement() && reader.name() == "first-name")
             {
-                QString s = reader.readElementText().replace(QRegularExpression("\p{P}"), s);
-                first_name.append(s.trimmed());
+                first_name.append(reader.readElementText().trimmed());
             }
             else if (reader.isStartElement() && reader.name() == "last-name")
             {
-                QString s = reader.readElementText().replace(QRegularExpression("\p{P}"), s);
-                last_name.append(s.trimmed());
+                last_name.append(reader.readElementText().trimmed());
             }
             else if (reader.isStartElement() && reader.name() == "book-title" && book_title.isEmpty())
             {
@@ -179,8 +177,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow* Parent)
             Authors.append({0,(first_name.size()>=i)?first_name[i]:"",last_name[i]});
         if(Authors.length() == 0)//no author
             Authors.append({0,"","Без автора"});
-        //because more than 2 artists is unnatural
-        int i = 0;
+        //because more than 2 artists is unnatural        
         QList<int> author_id;
         for(const auto &Author: Authors)
         {
@@ -267,7 +264,6 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
     ui->tableWidget->setRowCount(0);
     if(ui->tableWidget->columnCount() != 4)
     {
-        QTableWidgetItem* header = NULL;        
         ui->tableWidget->insertColumn(0);
         ui->tableWidget->setColumnWidth(0,400);
         ui->tableWidget->insertColumn(1);
@@ -346,23 +342,18 @@ void MainWindow::on_listWidget_itemSelectionChanged()
     }
 }
 
-void MainWindow::on_tableWidget_cellClicked(int row, int column)
-{
-
-}
-
 int rowPopup;
 
-void MainWindow::GetBookFromLib(int book_id, QByteArray* BookData,SmpLibDatabase::BookStruct* Book, SmpLibDatabase::LibFileStruct* LibFile)
+void MainWindow::GetBookFromLib(int book_id, QByteArray& BookData,SmpLibDatabase::BookStruct& Book, SmpLibDatabase::LibFileStruct& LibFile)
 {
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
-    Book = db->GetBook(book_id);
-    LibFile = db->GetLibFile(Book->libfile_id);
+    Book = *db->GetBook(book_id);
+    LibFile = *db->GetLibFile(Book.libfile_id);
 
-    if (Book != NULL)
+    //if (Book != NULL)
     {
-        QString filename = Book->name_in_archive;
-        QString archname = LibFile->filename;
+        QString filename = Book.name_in_archive;
+        QString archname = LibFile.filename;
 
         QString path = m_sSettings->value("LibPath").toString();
 
@@ -377,7 +368,7 @@ void MainWindow::GetBookFromLib(int book_id, QByteArray* BookData,SmpLibDatabase
 
         file.open(QIODevice::ReadOnly);
 
-        BookData = new QByteArray(file.readAll());
+        BookData = file.readAll();
         file.close();
         BigZip.close();
     }
@@ -389,7 +380,7 @@ void MainWindow::on_BookGridRow_OpenBook()
     QByteArray BookData;
     SmpLibDatabase::BookStruct Book;
     SmpLibDatabase::LibFileStruct LibFile;
-    GetBookFromLib(book_id, &BookData, &Book, &LibFile);
+    GetBookFromLib(book_id, BookData, Book, LibFile);
     if(BookData.size() > 0)
     {
         QString filename = Book.name_in_archive;
@@ -422,13 +413,13 @@ void MainWindow::on_BookGridRow_ExportSelection()
     for(QModelIndex &li: select->selectedRows())
     {
         int book_id = ui->tableWidget->item(li.row(), 3)->text().toInt();//get book id from column 2
-        QByteArray* BookData = NULL;
-        SmpLibDatabase::BookStruct* Book = NULL;
-        SmpLibDatabase::LibFileStruct* LibFile = NULL;
+        QByteArray BookData;
+        SmpLibDatabase::BookStruct Book;Book.book_title = "swfsdfgdsgfvsrdgf";
+        SmpLibDatabase::LibFileStruct LibFile;
         GetBookFromLib(book_id, BookData, Book, LibFile);
-        if(BookData->size() > 0)
+        if(BookData.size() > 0)
         {
-            QString filename = Book->name_in_archive;
+            QString filename = Book.name_in_archive;
             //QString archname = LibFile->filename;
             //save to temp file
             QString sFile;
@@ -437,7 +428,7 @@ void MainWindow::on_BookGridRow_ExportSelection()
             filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
             if(filename3 != filename)
             {//set alternate filename if name is broken
-                sFile = QString(QDir::tempPath() + "/" + Book->sequence_name.trimmed() + "_" + Book->sequence_number.trimmed() + "_" + Book->book_title + "_" + ".fb2");
+                sFile = QString(QDir::tempPath() + "/" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
             }
             else
                 sFile = QDir::tempPath() + "/" + filename3;
@@ -445,7 +436,7 @@ void MainWindow::on_BookGridRow_ExportSelection()
             QFile tmpFile(sFile);
             if (tmpFile.open(QIODevice::WriteOnly))
             {
-                tmpFile.write(*BookData);
+                tmpFile.write(BookData);
                 tmpFile.close();
             }
         }

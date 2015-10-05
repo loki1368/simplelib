@@ -13,6 +13,8 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
     QVariant path = m_sSettings->value("LibPath", QStandardPaths::standardLocations(QStandardPaths::HomeLocation)[0]);
     ui->BookPath->setText( path.toString());
     ui->cbDbEngine->setCurrentIndex( m_sSettings->value("DbEngine", 0).toInt());
+    path = m_sSettings->value("ExportPath", QStandardPaths::standardLocations(QStandardPaths::HomeLocation)[0]);
+    ui->ExportPath->setText( path.toString());
 }
 
 SettingsDialog::~SettingsDialog()
