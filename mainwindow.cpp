@@ -22,12 +22,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    //QTextCodec::setCodecForLocale(QTextCodec::codecForName("IBM 866"));    
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf-8"));
     QDir Dir;
     if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
     m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";    
-    m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");
+    m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");    
     m_sDbEngine = m_sSettings->value("DbEngine", "0").toString();
 
     m_DlgSettings = new SettingsDialog(this);
@@ -117,7 +117,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
         QString sequence_name("");
         QString sequence_number = "";
 
-
+        bool bAuthorBlock = false;
 
         while (!reader.atEnd())
         {
@@ -128,11 +128,14 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
                continue;
            }
 
-            if (reader.isStartElement() && reader.name() == "first-name")
+            if (reader.isStartElement() && reader.name() == "author") bAuthorBlock = true;
+            if (reader.isEndElement() && reader.name() == "author") bAuthorBlock = false;
+
+            if (reader.isStartElement() && reader.name() == "first-name" && bAuthorBlock)
             {
                 first_name.append(reader.readElementText().trimmed());
             }
-            else if (reader.isStartElement() && reader.name() == "last-name")
+            else if (reader.isStartElement() && reader.name() == "last-name" && bAuthorBlock)
             {
                 last_name.append(reader.readElementText().trimmed());
             }
@@ -174,7 +177,9 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
         //add author
         QList<SmpLibDatabase::AuthorStruct> Authors;
         for(int i=0;i<last_name.size();i++)
-            Authors.append({0,(first_name.size()>=i)?first_name[i]:"",last_name[i]});
+        {
+            Authors.append({0,(first_name.size()>i)?first_name[i]:"",last_name[i]});
+        }
         if(Authors.length() == 0)//no author
             Authors.append({0,"","Без автора"});
         //because more than 2 artists is unnatural        
@@ -201,11 +206,13 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
         //book is not in the database yet?
         timer_book->start();
         //add book
-        if(!db->IsBookExist(author_id[0], book_title))
+        QString authorlist = ",";
+        for(const auto &Author: author_id) authorlist += QString::number(Author) + ",";
+        if(!db->IsBookExist(authorlist, book_title))
         {
             timer_author->start();
-            SmpLibDatabase::BookStruct Book;
-            Book.author_id = author_id[0];
+            SmpLibDatabase::BookStruct Book;            
+            Book.authors = authorlist;
             Book.book_title = book_title;
             Book.genre = genre;
             Book.sequence_name = sequence_name;
@@ -428,10 +435,10 @@ void MainWindow::on_BookGridRow_ExportSelection()
             filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
             if(filename3 != filename)
             {//set alternate filename if name is broken
-                sFile = QString(QDir::tempPath() + "/" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
+                sFile = QString(m_sSettings->value("ExportPath").toString() + "/" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
             }
             else
-                sFile = QDir::tempPath() + "/" + filename3;
+                sFile = m_sSettings->value("ExportPath").toString() + "/" + filename3;
 
             QFile tmpFile(sFile);
             if (tmpFile.open(QIODevice::WriteOnly))
@@ -473,11 +480,10 @@ void MainWindow::on_actionUpdateDB_triggered()
     QElapsedTimer* timer = new QElapsedTimer();
     timer->start();
 
-
     QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(10);
+    thread_pool->setMaxThreadCount(1);
 
     foreach(QFileInfo fi, List)
     {

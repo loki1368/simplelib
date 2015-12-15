@@ -52,8 +52,9 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
     tblMap.insert("tblAuthor", "`id` INT(11) NOT NULL AUTO_INCREMENT,"
                                "PRIMARY KEY (`id`), "
                                "`first_name` VARCHAR(50) NULL,"
-                               "`last_name` VARCHAR(100) NULL"
-                               );
+                               "`last_name` VARCHAR(100) NULL,"
+                               "`nickname` VARCHAR(100) NULL"
+                               );    
     tblMap.insert("tblLibFiles", "`id` INT(11) NOT NULL AUTO_INCREMENT,"
                              "PRIMARY KEY (`id`),"
                              "`lib_title` VARCHAR(255) NULL,"
@@ -63,10 +64,7 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
     tblMap.insert("tblBook", "`id` INT(11) NOT NULL AUTO_INCREMENT,"
                              "PRIMARY KEY (`id`),"
                              "`book_title` VARCHAR(255) NULL,"
-                             "`author_id` INT(11) NOT NULL,"
-                             "CONSTRAINT `fkAuthor`"
-                             "FOREIGN KEY `fkAuthor` (`author_id`)"
-                             "REFERENCES `tblAuthor` (`id`),"
+                             "`authors` VARCHAR(80) NOT NULL,"
                              "`genre` VARCHAR(20),"
                              "`sequence_name` VARCHAR(50),"
                              "`sequence_number` VARCHAR(10),"
@@ -103,8 +101,9 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
     QMap<QString, QString> tblMap;
     tblMap.insert("tblAuthor", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                                "`first_name` VARCHAR(50) NULL,"
-                               "`last_name` VARCHAR(100) NULL"
-                               );
+                               "`last_name` VARCHAR(100) NULL,"
+                               "`nickname` VARCHAR(100) NULL"
+                               );    
     tblMap.insert("tblLibFiles", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                              "`lib_title` VARCHAR(255) NULL,"
                              "`filename` VARCHAR(50) NOT NULL,"
@@ -112,7 +111,7 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
                                );
     tblMap.insert("tblBook", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                              "`book_title` VARCHAR(255) NULL,"
-                             "`author_id` INT(11) NOT NULL,"
+                             "`authors` VARCHAR(50) NOT NULL,"
                              "`genre` VARCHAR(20),"
                              "`sequence_name` VARCHAR(50),"
                              "`sequence_number` VARCHAR(10),"
@@ -219,10 +218,11 @@ bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
 {
     //author is not in the database yet?
     QSqlQuery query(db);
-    QString sSelQuery = "select COUNT(id) from tblAuthor where (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name);";
+    QString sSelQuery = "select COUNT(id) from tblAuthor where (first_name IS NOT NULL OR last_name IS NOT NULL OR nickname IS NOT NULL) and (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name) and (nickname IS NULL OR nickname=:nickname);";
     query.prepare(sSelQuery);
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
+    query.bindValue(":nickname", QVariant(Author.nickname));
     query.exec();
     qDebug() << db.lastError().text();
     query.next();
@@ -235,32 +235,41 @@ void SmpLibDatabase::AddAuthor(AuthorStruct Author)
 {
     db.transaction();
     QSqlQuery query(db);
-    query.prepare("INSERT INTO tblAuthor (first_name, last_name) VALUES (:first_name, :last_name);");
+    query.prepare("INSERT INTO tblAuthor (first_name, last_name, nickname) VALUES (:first_name, :last_name, :nickname);");
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
+    query.bindValue(":nickname", QVariant(Author.nickname));
 
     query.exec();
+    QString sq = query.executedQuery();
+
     db.commit();
-    qDebug() << db.lastError().text();
+
+
+    //QMessageLogger.warning(db.lastError().text());
 }
 
 int SmpLibDatabase::GetAuthorIdByName(AuthorStruct Author)
 {
+
     //get author id
     QSqlQuery query(db);
-    query.prepare("select id from tblAuthor where (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name);");
+    query.prepare("select id from tblAuthor where (first_name IS NOT NULL OR last_name IS NOT NULL OR nickname IS NOT NULL) and (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name) and (nickname IS NULL OR nickname=:nickname);");
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
+    query.bindValue(":nickname", QVariant(Author.nickname));
     query.exec();
+    QString sq = query.executedQuery();
     query.next();
-    return query.value(0).toInt();
+    int ret = query.value(0).toInt();
+    return ret;
 }
 
 QList<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorList(QString qsFilter)
 {
     QList<AuthorStruct>* ListA = new QList<AuthorStruct>();
     QSqlQuery query(db);
-    QString qsQuery = "select * from tblAuthor where first_name like %1%3%2%1 OR last_name like %1%3%2%1;";
+    QString qsQuery = "select * from tblAuthor where first_name like %1%3%2%1 OR last_name like %1%3%2%1 OR nickname like %1%3%2%1;";
     query.exec(qsQuery.arg("'", "%", qsFilter));
     QString qs = query.lastQuery();
     while (query.next())
@@ -271,6 +280,7 @@ QList<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorList(QString qsFilt
         Author->id = Rec.value("id").toInt();
         Author->first_name = Rec.value("first_name").toString();
         Author->last_name = Rec.value("last_name").toString();
+        Author->nickname = Rec.value("nickname").toString();
 
         ListA->push_back(*Author);
     }
@@ -278,12 +288,11 @@ QList<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorList(QString qsFilt
 }
 
 
-
-bool SmpLibDatabase::IsBookExist(int AuthorId, QString qsBookTitle)
+bool SmpLibDatabase::IsBookExist(QString AuthorIds, QString qsBookTitle)
 {
     QSqlQuery query(db);
-    query.prepare("select COUNT(ID) from tblBook where author_id=:author_id and book_title=:book_title;");
-    query.bindValue(":author_id", QVariant(AuthorId));
+    query.prepare("select COUNT(ID) from tblBook where authors=:authors and book_title=:book_title;");
+    query.bindValue(":authors", QVariant(AuthorIds));
     query.bindValue(":book_title", QVariant(qsBookTitle));
     query.exec();
     query.next();
@@ -295,9 +304,9 @@ void SmpLibDatabase::AddBook(BookStruct Book)
 {
 
     QSqlQuery query(db);
-    query.prepare("INSERT INTO tblBook (author_id, book_title, genre, sequence_name, sequence_number, libfile_id, name_in_archive, book_size) "
-                  "VALUES (:author_id, :book_title, :genre, :sequence_name, :sequence_number, :libfile_id, :name_in_archive, :book_size);");
-    query.bindValue(":author_id", Book.author_id);
+    query.prepare("INSERT INTO tblBook (authors, book_title, genre, sequence_name, sequence_number, libfile_id, name_in_archive, book_size) "
+                  "VALUES (:authors, :book_title, :genre, :sequence_name, :sequence_number, :libfile_id, :name_in_archive, :book_size);");
+    query.bindValue(":authors", Book.authors);
     query.bindValue(":book_title", Book.book_title);
     query.bindValue(":genre", Book.genre);
     query.bindValue(":sequence_name", Book.sequence_name);
@@ -305,14 +314,16 @@ void SmpLibDatabase::AddBook(BookStruct Book)
     query.bindValue(":libfile_id", Book.libfile_id);
     query.bindValue(":name_in_archive", Book.name_in_archive);
     query.bindValue(":book_size", Book.book_size);
-    query.exec();    
+    query.exec();
+    QString qs = query.executedQuery();
+
 }
 
 QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, QString qsAuthor)
 {
     QList<BookStruct>* ListA = new QList<BookStruct>();
     QSqlQuery query(db);
-    QString qsQuery = "select * from tblBook where book_title like %1%3%2%1 AND author_id = %4;";
+    QString qsQuery = "select * from tblBook where book_title like %1%3%2%1 AND (authors LIKE %1%2,%4,%2%1);";
     query.exec(qsQuery.arg("'", "%", qsFilter, qsAuthor));
 
     while (query.next())
@@ -321,7 +332,7 @@ QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, 
         BookStruct* Book = new BookStruct;
 
         Book->id = Rec.value("id").toInt();
-        Book->author_id = Rec.value("author_id").toInt();
+        Book->authors = Rec.value("authors").toString();
         Book->book_title = Rec.value("book_title").toString();
         Book->genre = Rec.value("genre").toString();
         Book->sequence_name = Rec.value("sequence_name").toString();
@@ -347,7 +358,7 @@ SmpLibDatabase::BookStruct* SmpLibDatabase::GetBook(int book_id)
         QSqlRecord Rec = query.record();
         Book = new BookStruct;
         Book->id = Rec.value("id").toInt();
-        Book->author_id = Rec.value("author_id").toInt();
+        Book->authors = Rec.value("authors").toString();
         Book->book_title = Rec.value("book_title").toString();
         Book->genre = Rec.value("genre").toString();
         Book->sequence_name = Rec.value("sequence_name").toString();

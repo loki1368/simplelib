@@ -41,7 +41,7 @@ void SettingsDialog::resizeEvent(QResizeEvent* /*event*/)
 
 void SettingsDialog::on_buttonBox_clicked(QAbstractButton *button)
 {
-    if(button->text() == "OK")
+    if(button == ui->buttonBox->buttons()[0])
     {
         m_sSettings->setValue("LibPath", ui->BookPath->text());
         m_sSettings->setValue("DbEngine", ui->cbDbEngine->currentIndex());

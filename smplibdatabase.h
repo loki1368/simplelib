@@ -60,17 +60,18 @@ public:
         int id;
         QString first_name;
         QString last_name;
+        QString nickname;
     }AuthorStruct;
     bool IsAuthorExist(AuthorStruct Author);
     void AddAuthor(AuthorStruct Author);
     int GetAuthorIdByName(AuthorStruct Author);
     QList<AuthorStruct> GetAuthorList(QString qsFilter);
     //book
-    bool IsBookExist(int AuthorId, QString qsBookTitle);
+    bool IsBookExist(QString AuthorIds, QString qsBookTitle);
     typedef struct
     {
         int id;
-        int author_id;
+        QString authors;
         QString book_title;
         QString genre;
         QString sequence_name;

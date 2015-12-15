@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>942</width>
-    <height>642</height>
+    <width>940</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,6 +16,9 @@
   <property name="windowIcon">
    <iconset>
     <normaloff>icon.png</normaloff>icon.png</iconset>
+  </property>
+  <property name="layoutDirection">
+   <enum>Qt::LeftToRight</enum>
   </property>
   <widget class="QWidget" name="centralWidget">
    <property name="sizePolicy">
@@ -110,7 +113,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>942</width>
+     <width>940</width>
      <height>28</height>
     </rect>
    </property>
