@@ -7,11 +7,11 @@
 
 
 greaterThan(QT_MAJOR_VERSION, 4){
-    QT += widgets core gui sql xmlpatterns concurrent
+    QT += widgets core gui sql concurrent
     DEFINES += HAVE_QT5
 }
 
-CONFIG += c++11
+CONFIG += c++17
 
 TARGET = simplelib
 TEMPLATE = app
@@ -31,12 +31,8 @@ HEADERS  += mainwindow.h \
 FORMS    += mainwindow.ui \
     settingsdialog.ui
 
-unix:!macx: LIBS += -L$$PWD/../../../../usr/lib/
 
-INCLUDEPATH += $$PWD/../../../../usr/include
-DEPENDPATH += $$PWD/../../../../usr/include
-
-unix:!macx: LIBS += -L$$PWD/../../../../usr/lib/ -lquazip
+unix:!macx: LIBS += -L$$PWD/../../../../usr/lib64/ -lquazip1-qt5
 
 INCLUDEPATH += ./quazip
 DEPENDPATH += ./quazip

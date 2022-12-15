@@ -5,36 +5,57 @@
 #include <QSqlError>
 #include <QDebug>
 
+
 SmpLibDatabase* SmpLibDatabase::m_Instance = 0;
 
-SmpLibDatabase::SmpLibDatabase(QString dbPath, QString Engine)
-{
-    static QMap<QString, QString> DbEngines;
-    DbEngines["1"] = "QSQLITE";
-    DbEngines["0"] = "QMYSQL";
+SmpLibDatabase::SmpLibDatabase(){};
 
-    if(Engine=="0")//QMYSQL
-    {
-        QString strThread = QString("%1").arg((long)QThread::currentThread());
-        db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
-        db.setDatabaseName("smplib");
-        db.setUserName("smplib");
-        db.setPassword("smplib");
-        db.open();
-        //prepare database if first run
-        CreateTables(false);/*if not exist*/
+enum class DB_ENGINES
+{
+    QMARIADB = 0,
+    QSQLITE = 1,
+};
+
+QMap<int, QString> SmpLibDatabase::DbEngines {{(int)DB_ENGINES::QMARIADB, "QMARIADB"}, {(int)DB_ENGINES::QSQLITE, "QSQLITE"}};
+
+SmpLibDatabase* SmpLibDatabase::CreateSmpLibDatabase(QString dbPath, int Engine)
+{
+    auto _db = new SmpLibDatabase();
+
+    QString strThread = QString("%1").arg((long)QThread::currentThread());
+    _db->db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
+    bool bValidDb = false;
+
+    if(Engine==(int)DB_ENGINES::QMARIADB)//QMYSQL
+    {        
+        _db->db.setDatabaseName("smplib");
+        _db->db.setUserName("smplib");
+        _db->db.setPassword("smplib");
+        if((bValidDb = _db->db.open()))
+        {
+            //prepare database if first run
+            _db->CreateTables(false);/*if not exist*/
+        }
     }
-    else if(Engine=="1")//QSQLITE
+    else if(Engine==(int)DB_ENGINES::QSQLITE)//QSQLITE
+    {        
+        _db->db.setDatabaseName(dbPath);
+        _db->db.setUserName("smplib");
+        _db->db.setPassword("smplib");
+        if((bValidDb = _db->db.open()))
+        {
+            //prepare database if first run
+            _db->CreateTablesSqlite(false);/*if not exist*/
+        }
+    }
+
+    if(!bValidDb)
     {
-        QString strThread = QString("%1").arg((long)QThread::currentThread());
-        db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
-        db.setDatabaseName(dbPath);
-        db.setUserName("smplib");
-        db.setPassword("smplib");
-        db.open();
-        //prepare database if first run
-        CreateTablesSqlite(false);/*if not exist*/
-    }    
+        delete _db;
+        _db = nullptr;
+    }
+
+    return _db;
 }
 
 SmpLibDatabase::~SmpLibDatabase()
@@ -59,7 +80,8 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                              "PRIMARY KEY (`id`),"
                              "`lib_title` VARCHAR(255) NULL,"
                              "`filename` VARCHAR(50) NOT NULL,"
-                             "`filepath` VARCHAR(1000) NULL"
+                             "`filepath` VARCHAR(1000) NULL,"
+                             "`filehash` VARCHAR(128) NULL"
                                );
     tblMap.insert("tblBook", "`id` INT(11) NOT NULL AUTO_INCREMENT,"
                              "PRIMARY KEY (`id`),"
@@ -91,7 +113,8 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
         query.exec();
         db.commit();
 
-        qDebug() << db.lastError().text();
+        auto err = db.lastError().text();
+        qDebug() << err;
     }
 }
 
@@ -100,20 +123,20 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
     QStringList lstTables = QStringList() << "tblAuthor"<<"tblLibFiles"<<"tblBook";
     QMap<QString, QString> tblMap;
     tblMap.insert("tblAuthor", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
-                               "`first_name` VARCHAR(50) NULL,"
-                               "`last_name` VARCHAR(100) NULL,"
-                               "`nickname` VARCHAR(100) NULL"
+                               "`first_name` NVARCHAR(50) NULL,"
+                               "`last_name` NVARCHAR(100) NULL,"
+                               "`nickname` NVARCHAR(100) NULL"
                                );    
     tblMap.insert("tblLibFiles", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
-                             "`lib_title` VARCHAR(255) NULL,"
+                             "`lib_title` NVARCHAR(255) NULL,"
                              "`filename` VARCHAR(50) NOT NULL,"
-                             "`filepath` VARCHAR(1000) NULL"
+                             "`filepath` NVARCHAR(1000) NULL"
                                );
     tblMap.insert("tblBook", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
-                             "`book_title` VARCHAR(255) NULL,"
-                             "`authors` VARCHAR(50) NOT NULL,"
-                             "`genre` VARCHAR(20),"
-                             "`sequence_name` VARCHAR(50),"
+                             "`book_title` NVARCHAR(255) NULL,"
+                             "`authors` NVARCHAR(255) NOT NULL,"
+                             "`genre` NVARCHAR(255),"
+                             "`sequence_name` NVARCHAR(255),"
                              "`sequence_number` VARCHAR(10),"
                              "`libfile_id` INT(11),"
                              "`name_in_archive` VARCHAR(255),"
@@ -156,30 +179,53 @@ void SmpLibDatabase::DropTables()
     }
 }
 
-
-bool SmpLibDatabase::IsLibFileExist(LibFileStruct LibFile)
+SmpLibDatabase::LIBFILERESULT SmpLibDatabase::IsLibFileExist(LibFileStruct LibFile)
 {
     //LibFile is not in the database yet?
     QSqlQuery query(db);
-    QString sSelQuery = "select COUNT(ID) from tblLibFiles where (filepath IS NULL and filename=:filename) or (filepath=:filepath and filename=:filename);";
+    QString sSelQuery = "select ID, filehash from tblLibFiles where (filepath IS NULL and filename=:filename) or (filepath=:filepath and filename=:filename);";
     query.prepare(sSelQuery);
     query.bindValue(":filepath", QVariant(LibFile.filepath));
     query.bindValue(":filename", QVariant(LibFile.filename));
+    query.bindValue(":filehash", QVariant(LibFile.filehash));
     query.exec();
     query.next();
-    int rec_count = query.value(0).toInt();
-    return rec_count > 0;
+
+    int rec_count = query.size();
+    if(rec_count > 0)
+    {
+        if(query.record().value(1).toString() == LibFile.filehash)
+            return EXIST;
+        else
+            return WRONG_HASH;
+    }
+    else
+        return NOT_EXIST;
 }
 
 void SmpLibDatabase::AddLibFile(LibFileStruct LibFile)
 {
     QSqlQuery query(db);
-    query.prepare("INSERT INTO tblLibFiles (filepath, filename) VALUES (:filepath, :filename);");
+    query.prepare("INSERT INTO tblLibFiles (filepath, filename, filehash) VALUES (:filepath, :filename, :filehash);");
     query.bindValue(":filepath", QVariant(LibFile.filepath));
     query.bindValue(":filename", QVariant(LibFile.filename));
+    query.bindValue(":filehash", QVariant(LibFile.filehash));
+
+    query.exec();
+    auto err = query.lastError().text();
+    QString qs = query.executedQuery();
+}
+
+void SmpLibDatabase::UpdateLibFile(LibFileStruct LibFile)
+{
+    QSqlQuery query(db);
+    query.prepare("UPDATE tblLibFiles SET (filehash = ':filehash') WHERE id = :id;");
+    query.bindValue(":filehash", QVariant(LibFile.filehash));
+    query.bindValue(":id", QVariant(LibFile.id));
 
     query.exec();
 }
+
 
 int SmpLibDatabase::GetLibFileIdByPathName(LibFileStruct LibFile)
 {
@@ -193,9 +239,9 @@ int SmpLibDatabase::GetLibFileIdByPathName(LibFileStruct LibFile)
     return query.value(0).toInt();
 }
 
-SmpLibDatabase::LibFileStruct* SmpLibDatabase::GetLibFile(int libfile_id)
+std::unique_ptr<SmpLibDatabase::LibFileStruct> SmpLibDatabase::GetLibFile(int libfile_id)
 {
-    LibFileStruct* LibFile = NULL;
+    std::unique_ptr<LibFileStruct> LibFile = nullptr;
     QSqlQuery query(db);
     QString qsQuery = "select * from tblLibFiles where ID = %1;";
     query.exec(qsQuery.arg( libfile_id));
@@ -203,7 +249,7 @@ SmpLibDatabase::LibFileStruct* SmpLibDatabase::GetLibFile(int libfile_id)
     if(query.next())
     {
         QSqlRecord Rec = query.record();
-        LibFile = new SmpLibDatabase::LibFileStruct();
+        LibFile = std::make_unique<LibFileStruct>();
 
         LibFile->id = Rec.value("id").toInt();
         LibFile->lib_title = Rec.value("lib_title").toString();
@@ -265,26 +311,50 @@ int SmpLibDatabase::GetAuthorIdByName(AuthorStruct Author)
     return ret;
 }
 
-QList<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorList(QString qsFilter)
+std::unique_ptr<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorById(int idAuthor)
 {
-    QList<AuthorStruct>* ListA = new QList<AuthorStruct>();
     QSqlQuery query(db);
-    QString qsQuery = "select * from tblAuthor where first_name like %1%3%2%1 OR last_name like %1%3%2%1 OR nickname like %1%3%2%1;";
-    query.exec(qsQuery.arg("'", "%", qsFilter));
+    QString qsQuery = "select * from tblAuthor where id = %1 " ;
+    //qsQuery = "select * from tblAuthor";
+    query.exec(qsQuery.arg(idAuthor));
     QString qs = query.lastQuery();
-    while (query.next())
+
+    std::unique_ptr<AuthorStruct> Author = nullptr;
+    if (query.next())
     {
         QSqlRecord Rec = query.record();
-        AuthorStruct* Author = new AuthorStruct;
+        Author = std::make_unique<AuthorStruct>();
 
         Author->id = Rec.value("id").toInt();
         Author->first_name = Rec.value("first_name").toString();
         Author->last_name = Rec.value("last_name").toString();
         Author->nickname = Rec.value("nickname").toString();
-
-        ListA->push_back(*Author);
     }
-    return *ListA;
+    return Author;
+}
+
+
+std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> SmpLibDatabase::GetAuthorList(QString qsFilter)
+{
+    auto ListA = std::make_unique<QList<AuthorStruct>>();
+    QSqlQuery query(db);
+    QString qsQuery = "select * from tblAuthor where (first_name like %1%3%2%1 OR last_name like %1%3%2%1 OR nickname like %1%3%2%1) " ;
+    //qsQuery = "select * from tblAuthor";
+    query.exec(qsQuery.arg("'", "%", qsFilter));
+    QString qs = query.lastQuery();
+    while (query.next())
+    {
+        QSqlRecord Rec = query.record();
+        AuthorStruct Author;
+
+        Author.id = Rec.value("id").toInt();
+        Author.first_name = Rec.value("first_name").toString();
+        Author.last_name = Rec.value("last_name").toString();
+        Author.nickname = Rec.value("nickname").toString();
+
+        ListA->push_back(Author);
+    }
+    return ListA;
 }
 
 
@@ -315,13 +385,13 @@ void SmpLibDatabase::AddBook(BookStruct Book)
     query.bindValue(":name_in_archive", Book.name_in_archive);
     query.bindValue(":book_size", Book.book_size);
     query.exec();
+    auto err = query.lastError().text();
     QString qs = query.executedQuery();
-
 }
 
-QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, QString qsAuthor)
+std::unique_ptr<QList<SmpLibDatabase::BookStruct>> SmpLibDatabase::GetBookList(QString qsFilter, QString qsAuthor)
 {
-    QList<BookStruct>* ListA = new QList<BookStruct>();
+    auto ListA =  std::make_unique<QList<BookStruct>>();
     QSqlQuery query(db);
     QString qsQuery = "select * from tblBook where book_title like %1%3%2%1 AND (authors LIKE %1%2,%4,%2%1);";
     query.exec(qsQuery.arg("'", "%", qsFilter, qsAuthor));
@@ -329,26 +399,26 @@ QList<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBookList(QString qsFilter, 
     while (query.next())
     {
         QSqlRecord Rec = query.record();
-        BookStruct* Book = new BookStruct;
+        BookStruct Book;
 
-        Book->id = Rec.value("id").toInt();
-        Book->authors = Rec.value("authors").toString();
-        Book->book_title = Rec.value("book_title").toString();
-        Book->genre = Rec.value("genre").toString();
-        Book->sequence_name = Rec.value("sequence_name").toString();
-        Book->sequence_number = Rec.value("sequence_number").toString();
-        Book->libfile_id = Rec.value("libfile_id").toInt();
-        Book->name_in_archive = Rec.value("name_in_archive").toString();
-        Book->book_size = Rec.value("book_size").toInt();
+        Book.id = Rec.value("id").toInt();
+        Book.authors = Rec.value("authors").toString();
+        Book.book_title = Rec.value("book_title").toString();
+        Book.genre = Rec.value("genre").toString();
+        Book.sequence_name = Rec.value("sequence_name").toString();
+        Book.sequence_number = Rec.value("sequence_number").toString();
+        Book.libfile_id = Rec.value("libfile_id").toInt();
+        Book.name_in_archive = Rec.value("name_in_archive").toString();
+        Book.book_size = Rec.value("book_size").toInt();
 
-        ListA->push_back(*Book);
+        ListA->push_back(Book);
     }
-    return *ListA;
+    return ListA;
 }
 
-SmpLibDatabase::BookStruct* SmpLibDatabase::GetBook(int book_id)
+std::unique_ptr<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBook(int book_id)
 {
-    BookStruct* Book = NULL;
+    std::unique_ptr<BookStruct> Book = nullptr;
     QSqlQuery query(db);
     QString qsQuery = "select * from tblBook where ID = %1;";
     query.exec(qsQuery.arg( book_id));
@@ -356,7 +426,7 @@ SmpLibDatabase::BookStruct* SmpLibDatabase::GetBook(int book_id)
     if(query.next())
     {
         QSqlRecord Rec = query.record();
-        Book = new BookStruct;
+        Book = std::make_unique<BookStruct>();
         Book->id = Rec.value("id").toInt();
         Book->authors = Rec.value("authors").toString();
         Book->book_title = Rec.value("book_title").toString();

@@ -5,6 +5,8 @@ include_directories(
 	${ZLIB_INCLUDE_DIRS}
 )
 
+cmake_minimum_required(VERSION 3.21)
+
 file(GLOB SRCS "*.c" "*.cpp")
 file(GLOB PUBLIC_HEADERS "*.h")
 

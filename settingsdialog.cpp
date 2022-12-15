@@ -20,6 +20,7 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
 SettingsDialog::~SettingsDialog()
 {
     delete ui;
+    delete m_sSettings;
 }
 
 void SettingsDialog::resizeEvent(QResizeEvent* /*event*/)
@@ -47,7 +48,11 @@ void SettingsDialog::on_buttonBox_clicked(QAbstractButton *button)
         m_sSettings->setValue("DbEngine", ui->cbDbEngine->currentIndex());
         m_sSettings->setValue("ExportPath", ui->ExportPath->text());
         m_sSettings->sync();
+        this->accept();
+    }    
+    else
+    {
+        this->reject();
     }
-    this->close();
 }
 

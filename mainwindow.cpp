@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include "parsebigzip.h"
 #include <QtConcurrent/QtConcurrent>
+#include <QStringBuilder>
 
 
 
@@ -28,7 +29,7 @@ MainWindow::MainWindow(QWidget *parent) :
         Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
     m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";    
     m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");    
-    m_sDbEngine = m_sSettings->value("DbEngine", "0").toString();
+    m_DbEngine = m_sSettings->value("DbEngine", 0).toInt();
 
     m_DlgSettings = new SettingsDialog(this);
 }
@@ -36,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+    delete m_sSettings;
     if(m_tmpFile){delete m_tmpFile; m_tmpFile = nullptr;}
 }
 
@@ -78,6 +80,7 @@ int time_parse = 0;
 int time_author = 0;
 int time_book = 0;
 
+
 void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 {
     QFile infile(fi.absoluteFilePath());
@@ -89,12 +92,13 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
     QList<QuaZipFileInfo> ZipFI = BigZip.getFileInfoList();
 
-    QElapsedTimer* timer_parse = new QElapsedTimer();
-    QElapsedTimer* timer_author = new QElapsedTimer();
-    QElapsedTimer* timer_book = new QElapsedTimer();
+    auto timer_parse = std::make_unique<QElapsedTimer>();
+    auto  timer_author = std::make_unique<QElapsedTimer>();
+    auto  timer_book = std::make_unique<QElapsedTimer>();
     int books_processed = 0;
 
-    SmpLibDatabase* db = new SmpLibDatabase(m_sDBFile, m_sDbEngine);
+    //auto db = std::make_unique<SmpLibDatabase>(m_sDBFile, m_DbEngine);
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
 
     foreach(QuaZipFileInfo fi2, ZipFI)
     {
@@ -169,19 +173,14 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
         time_parse += timer_parse->elapsed();
 
-
-
-
-        //SmpLibDatabase* db = new SmpLibDatabase("");//SmpLibDatabase::instance(Parent->m_sDBFile);
-
         //add author
         QList<SmpLibDatabase::AuthorStruct> Authors;
         for(int i=0;i<last_name.size();i++)
         {
-            Authors.append({0,(first_name.size()>i)?first_name[i]:"",last_name[i]});
+            Authors.append({0,(first_name.size()>i)?first_name[i]:"",last_name[i], ""});
         }
         if(Authors.length() == 0)//no author
-            Authors.append({0,"","Без автора"});
+            Authors.append({0,"","Без автора", ""});
         //because more than 2 artists is unnatural        
         QList<int> author_id;
         for(const auto &Author: Authors)
@@ -195,7 +194,8 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
         //add filepath into the database
         //filepath is not yet in the database?
-        SmpLibDatabase::LibFileStruct LibFile = {0, NULL,fi.fileName(), fi.absoluteDir().path()};
+        auto file_checksum = QString(fileChecksum(fi.absoluteFilePath(), QCryptographicHash::Md5));
+        SmpLibDatabase::LibFileStruct LibFile = {0, NULL,fi.fileName(), fi.absoluteDir().path(), file_checksum};
         if(!db->IsLibFileExist(LibFile))
         {
             db->AddLibFile(LibFile);
@@ -233,7 +233,6 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
         QString stime_book2 = timeConversion(time_book);
     }
-    delete db;
 }
 
 void MainWindow::fillAuthorList(QString qsFilter)
@@ -243,9 +242,10 @@ void MainWindow::fillAuthorList(QString qsFilter)
 
     ui->listWidget->clear();
 
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
-    QList<SmpLibDatabase::AuthorStruct> AuthorList = db->GetAuthorList(qsFilter);
-    foreach (SmpLibDatabase::AuthorStruct Author, AuthorList)
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+    auto AuthorList = db->GetAuthorList(qsFilter);
+
+    foreach (SmpLibDatabase::AuthorStruct Author, *AuthorList)
     {
          QString sAuthorLine;
          if(Author.last_name != "" && Author.first_name != "")
@@ -283,10 +283,10 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
         ui->tableWidget->setColumnWidth(3,0);
     }
 
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
-    QList<SmpLibDatabase::BookStruct> BookList = db->GetBookList(qsFilter, qsAuthor);
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+    auto BookList = db->GetBookList(qsFilter, qsAuthor);
 
-    foreach (SmpLibDatabase::BookStruct Book, BookList)
+    foreach (SmpLibDatabase::BookStruct Book, *BookList)
     {         
          QString book_id = QString::number(Book.id);
          QString book_title = Book.book_title;
@@ -318,18 +318,32 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
          item->setText(book_id);
          ui->tableWidget->setItem(0, 3, item);
     }
-    ui->tableWidget->sortByColumn(1);
+    ui->tableWidget->sortByColumn(0, Qt::SortOrder::AscendingOrder);
+    ui->tableWidget->sortByColumn(1, Qt::SortOrder::AscendingOrder);
 
-    //delete &BookList;
+    //delete &BookList;new
 
     QApplication::restoreOverrideCursor();
 }
 
 
+void MainWindow::TryFillAuthorList()
+{
+    auto db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+    if(!db)
+    {
+        QMessageBox msg(this);
+        QMessageBox::warning(this, "Error", "Cannot open database!");
+        return;
+    }
+
+    fillAuthorList();
+}
+
 void MainWindow::show()
 {
     this->setVisible(true);
-    fillAuthorList();
+    QTimer::singleShot(50, this, SLOT(TryFillAuthorList()));
 }
 
 void MainWindow::on_lineEdit_returnPressed()
@@ -351,33 +365,38 @@ void MainWindow::on_listWidget_itemSelectionChanged()
 
 int rowPopup;
 
-void MainWindow::GetBookFromLib(int book_id, QByteArray& BookData,SmpLibDatabase::BookStruct& Book, SmpLibDatabase::LibFileStruct& LibFile)
+void MainWindow::GetBookFromLib(int book_id, QByteArray& BookData,
+                                std::unique_ptr<SmpLibDatabase::BookStruct>& Book,
+                                std::unique_ptr<SmpLibDatabase::LibFileStruct>& LibFile)
 {
-    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
-    Book = *db->GetBook(book_id);
-    LibFile = *db->GetLibFile(Book.libfile_id);
-
-    //if (Book != NULL)
+    SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+    Book = db->GetBook(book_id);
+    if(Book != nullptr)
     {
-        QString filename = Book.name_in_archive;
-        QString archname = LibFile.filename;
+        LibFile = db->GetLibFile(Book->libfile_id);
 
-        QString path = m_sSettings->value("LibPath").toString();
+        if (LibFile != nullptr)
+        {
+            QString filename = Book->name_in_archive;
+            QString archname = LibFile->filename;
 
-        QFile infile(path + "/" + archname);
-        infile.open(QIODevice::ReadOnly);
+            QString path = m_sSettings->value("LibPath").toString();
 
-        QuaZip BigZip(&infile);
+            QFile infile(path + "/" + archname);
+            infile.open(QIODevice::ReadOnly);
 
-        BigZip.open(QuaZip::mdUnzip);
-        BigZip.setCurrentFile(filename);
-        QuaZipFile file(&BigZip);
+            QuaZip BigZip(&infile);
 
-        file.open(QIODevice::ReadOnly);
+            BigZip.open(QuaZip::mdUnzip);
+            BigZip.setCurrentFile(filename);
+            QuaZipFile file(&BigZip);
 
-        BookData = file.readAll();
-        file.close();
-        BigZip.close();
+            file.open(QIODevice::ReadOnly);
+
+            BookData = file.readAll();
+            file.close();
+            BigZip.close();
+        }
     }
 }
 
@@ -385,32 +404,41 @@ void MainWindow::on_BookGridRow_OpenBook()
 {
     int book_id = ui->tableWidget->item(rowPopup, 3)->text().toInt();//get book id from column 2
     QByteArray BookData;
-    SmpLibDatabase::BookStruct Book;
-    SmpLibDatabase::LibFileStruct LibFile;
+    std::unique_ptr<SmpLibDatabase::BookStruct> Book = nullptr;
+    std::unique_ptr<SmpLibDatabase::LibFileStruct> LibFile = nullptr;
     GetBookFromLib(book_id, BookData, Book, LibFile);
     if(BookData.size() > 0)
     {
-        QString filename = Book.name_in_archive;
+        QString filename = Book->name_in_archive;
         //QString archname = LibFile->filename;
         //save to temp file
-        if(m_tmpFile != nullptr){delete m_tmpFile; m_tmpFile = nullptr;}
-        m_tmpFile = new QTemporaryFile();
+        if(m_tmpFile != nullptr          ){delete m_tmpFile; m_tmpFile = nullptr;}
+        QTemporaryFile tmpFile;
         QString filename2 = "";
         QString filename3 = filename;
         filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
         if(filename3 != filename)
         {//set alternate filename if name is broken
-            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
+            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + Book->sequence_name.trimmed() + "_" + Book->sequence_number.trimmed() + "_" + Book->book_title + "_" + ".fb2");
         }
         else
-            m_tmpFile->setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
+            tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + filename3);
 
-        if (m_tmpFile->open())
+        tmpFile.open();
+        tmpFile.close();
+        m_tmpFile = new QFile(tmpFile.fileName());
+        tmpFile.remove();
+        if (m_tmpFile->open(QIODevice::WriteOnly))
         {
             m_tmpFile->write(BookData);
         }
+        m_tmpFile->close();
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_tmpFile->fileName()));
-        //m_tmpFile->deleteLater();
+
+        QtConcurrent::run([&](QString filename){
+                    QThread::sleep(5);
+                    QFile::remove(filename);
+            }, m_tmpFile->fileName());
     }
 }
 
@@ -421,24 +449,47 @@ void MainWindow::on_BookGridRow_ExportSelection()
     {
         int book_id = ui->tableWidget->item(li.row(), 3)->text().toInt();//get book id from column 2
         QByteArray BookData;
-        SmpLibDatabase::BookStruct Book;Book.book_title = "swfsdfgdsgfvsrdgf";
-        SmpLibDatabase::LibFileStruct LibFile;
+        std::unique_ptr<SmpLibDatabase::BookStruct> Book = nullptr;
+        std::unique_ptr<SmpLibDatabase::LibFileStruct> LibFile = nullptr;
         GetBookFromLib(book_id, BookData, Book, LibFile);
+        auto db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+        auto author = db->GetAuthorById(Book->authors.split(',', Qt::SplitBehaviorFlags::SkipEmptyParts)[0].toInt());
+
         if(BookData.size() > 0)
         {
-            QString filename = Book.name_in_archive;
+            QString filename = Book->name_in_archive;
             //QString archname = LibFile->filename;
             //save to temp file
             QString sFile;
             QString filename2 = "";
             QString filename3 = filename;
             filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
-            if(filename3 != filename)
+
+
+            /*if(filename3 != filename)
             {//set alternate filename if name is broken
                 sFile = QString(m_sSettings->value("ExportPath").toString() + "/" + Book.sequence_name.trimmed() + "_" + Book.sequence_number.trimmed() + "_" + Book.book_title + "_" + ".fb2");
             }
             else
                 sFile = m_sSettings->value("ExportPath").toString() + "/" + filename3;
+            */
+
+            sFile = QString(m_sSettings->value("ExportPath").toString()) + "/";
+
+            QStringList nameParts {
+                        (author->last_name.trimmed() + " " + author->first_name.trimmed()).trimmed(),
+                        Book->sequence_name.trimmed(),
+                        Book->sequence_number.trimmed(),
+                        Book->book_title.trimmed()};
+            for(auto part : nameParts)
+            {
+                if(part != "")
+                {
+                    sFile += part;
+                    sFile += "_";
+                }
+            }
+            sFile = sFile.left(sFile.length() - 1);
 
             QFile tmpFile(sFile);
             if (tmpFile.open(QIODevice::WriteOnly))
@@ -462,9 +513,13 @@ void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
 }
 
 void MainWindow::on_actionPreferences_triggered()
-{
-
-    m_DlgSettings->showNormal();
+{ 
+    m_DlgSettings->setModal(true);
+    m_DlgSettings->exec();
+    if(static_cast<QDialog::DialogCode>(m_DlgSettings->result()) == QDialog::Accepted)
+    {
+        TryFillAuthorList();
+    }
 }
 
 void MainWindow::on_actionExit_triggered()
@@ -472,34 +527,43 @@ void MainWindow::on_actionExit_triggered()
     this->close();
 }
 
-void MainWindow::on_actionUpdateDB_triggered()
+void MainWindow::UpdateDB(bool /*bRescan*/)
 {
     QApplication::setOverrideCursor(Qt::WaitCursor);
     QApplication::processEvents();
 
-    QElapsedTimer* timer = new QElapsedTimer();
-    timer->start();
+    QElapsedTimer timer;
+    timer.start();
 
     QString path = m_sSettings->value("LibPath").toString();
     QDir Dir(path);
     QFileInfoList List = Dir.entryInfoList(QStringList()<<"*.zip");
-    thread_pool->setMaxThreadCount(1);
+    thread_pool->setMaxThreadCount(12);
 
     foreach(QFileInfo fi, List)
     {
         QtConcurrent::run(aBigZipRun, fi, this);
-        //ParseBigZipFunc(fi, this);
     }
     thread_pool->waitForDone();
 
     fillAuthorList();
 
-    QMessageBox::information(this, "Заняло времени:", timeConversion(timer->elapsed()));
-    delete timer;
+    QMessageBox::information(this, "Заняло времени:", timeConversion(timer.elapsed()));
 
-    fillAuthorList();
+    //fillAuthorList();
     QApplication::restoreOverrideCursor();
 }
+
+void MainWindow::on_actionUpdateDB_triggered()
+{
+    UpdateDB(false);
+}
+
+void MainWindow::on_actionRescanDB_triggered()
+{
+    UpdateDB(true);
+}
+
 
 void MainWindow::on_actionClearDB_triggered()
 {
@@ -509,9 +573,22 @@ void MainWindow::on_actionClearDB_triggered()
                           QMessageBox::Yes|QMessageBox::No);
     if(reply == QMessageBox::Yes)
     {
-        SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_sDbEngine);
+        SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
         db->DropTables();
         fillAuthorList();
         fillBookList("");
     }
+}
+
+QString MainWindow::fileChecksum(const QString &fileName,
+                        QCryptographicHash::Algorithm hashAlgorithm)
+{
+    QFile f(fileName);
+    if (f.open(QFile::ReadOnly)) {
+        QCryptographicHash hash(hashAlgorithm);
+        if (hash.addData(&f)) {
+            return hash.result().toHex();
+        }
+    }
+    return QString("");
 }

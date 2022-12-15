@@ -19,13 +19,16 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
   <widget class="QWidget" name="formLayoutWidget">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>10</y>
      <width>881</width>
-     <height>81</height>
+     <height>110</height>
     </rect>
    </property>
    <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0" columnstretch="0,0">

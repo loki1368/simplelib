@@ -9,6 +9,7 @@
 #include "quazip/quazip.h"
 #include <QRunnable>
 #include "settingsdialog.h"
+#include <QCryptographicHash>
 
 namespace Ui {
 class MainWindow;
@@ -41,22 +42,29 @@ private slots:
     void on_actionExit_triggered();
 
     void on_actionUpdateDB_triggered();
+    void on_actionRescanDB_triggered();
 
     void on_actionClearDB_triggered();
+
+    void TryFillAuthorList();
 
 private:
     QString m_sSettingsFile;
     QString m_sDBFile;
-    QString m_sDbEngine;
+    int m_DbEngine;
     QSettings* m_sSettings;
     SettingsDialog* m_DlgSettings = nullptr;
     Ui::MainWindow *ui;
-    QTemporaryFile* m_tmpFile = nullptr;
+    QFile* m_tmpFile = nullptr;
     void fillAuthorList(QString qsFilter = "%");
     void fillBookList(QString qsAuthor, QString qsFilter = "%");
-    void GetBookFromLib(int book_id, QByteArray& BookData, SmpLibDatabase::BookStruct& Book, SmpLibDatabase::LibFileStruct& LibFile);
+    void GetBookFromLib(int book_id, QByteArray& BookData,
+                        std::unique_ptr<SmpLibDatabase::BookStruct>& Book,
+                        std::unique_ptr<SmpLibDatabase::LibFileStruct>& LibFile);
+    void UpdateDB(bool bRescan);
+    QString fileChecksum(const QString &fileName, QCryptographicHash::Algorithm hashAlgorithm);
 
-    QString timeConversion(int msecs);
+    QString timeConversion(int msecs);    
 };
 
 

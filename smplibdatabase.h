@@ -8,12 +8,13 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlRecord>
 #include <QVariant>
+#include <memory>
 
 
 class SmpLibDatabase
 {
 public:
-    static SmpLibDatabase* instance(QString dbPath, QString Engine)
+    static SmpLibDatabase* instance(QString dbPath, int Engine)
     {
         static QMutex mutex;
         if (!m_Instance)
@@ -21,7 +22,7 @@ public:
             mutex.lock();
 
             if (!m_Instance)
-                m_Instance = new SmpLibDatabase(dbPath, Engine);
+                m_Instance = SmpLibDatabase::CreateSmpLibDatabase(dbPath, Engine);
 
             mutex.unlock();
         }
@@ -38,8 +39,19 @@ public:
         mutex.unlock();
     }
 
-    SmpLibDatabase(QString dbPath, QString Engine);
     ~SmpLibDatabase();
+
+
+    static QMap<int, QString> DbEngines;
+
+    static SmpLibDatabase* CreateSmpLibDatabase(QString dbPath, int Engine);
+
+    enum LIBFILERESULT
+    {
+        NOT_EXIST = 0,
+        EXIST,
+        WRONG_HASH
+    };
 
     //LibFiles
     typedef struct
@@ -48,12 +60,14 @@ public:
         QString lib_title;
         QString filename;
         QString filepath;
+        QString filehash;
     }LibFileStruct;
-    bool IsLibFileExist(LibFileStruct LibFile);
+    LIBFILERESULT IsLibFileExist(LibFileStruct LibFile);
     void AddLibFile(LibFileStruct LibFile);
+    void UpdateLibFile(LibFileStruct LibFile);
     int GetLibFileIdByPathName(LibFileStruct LibFile);
     QList<LibFileStruct> GetLibFilesList(QString qsFilter);
-    LibFileStruct* GetLibFile(int libfile_id);
+    std::unique_ptr<LibFileStruct> GetLibFile(int libfile_id);
     //author
     typedef struct
     {
@@ -65,7 +79,8 @@ public:
     bool IsAuthorExist(AuthorStruct Author);
     void AddAuthor(AuthorStruct Author);
     int GetAuthorIdByName(AuthorStruct Author);
-    QList<AuthorStruct> GetAuthorList(QString qsFilter);
+    std::unique_ptr<SmpLibDatabase::AuthorStruct> GetAuthorById(int idAuthor);
+    std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> GetAuthorList(QString qsFilter);
     //book
     bool IsBookExist(QString AuthorIds, QString qsBookTitle);
     typedef struct
@@ -81,15 +96,15 @@ public:
         int book_size;
     }BookStruct;
     void AddBook(BookStruct Book);
-    QList<BookStruct> GetBookList(QString qsFilter, QString qsAuthor);
-    BookStruct* GetBook(int BookId);
+    std::unique_ptr<QList<SmpLibDatabase::BookStruct>> GetBookList(QString qsFilter, QString qsAuthor);
+    std::unique_ptr<BookStruct> GetBook(int BookId);
     void DropTables();
 
 private:
     QSqlDatabase db;
 
 
-
+    SmpLibDatabase();
     SmpLibDatabase(const SmpLibDatabase &); // hide copy constructor
     SmpLibDatabase& operator=(const SmpLibDatabase &); // hide assign op
                                  // we leave just the declarations, so the compiler will warn us
