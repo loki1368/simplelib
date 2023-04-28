@@ -8,6 +8,8 @@
 
 SmpLibDatabase* SmpLibDatabase::m_Instance = 0;
 
+std::mutex lockReading;
+
 SmpLibDatabase::SmpLibDatabase(){};
 
 enum class DB_ENGINES
@@ -98,6 +100,7 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                              "`book_size` INT(11) NOT NULL"
                                );
 
+
     QSqlQuery query(db);    
     foreach(QString sTable, lstTables)
     {
@@ -179,8 +182,9 @@ void SmpLibDatabase::DropTables()
     }
 }
 
-SmpLibDatabase::LIBFILERESULT SmpLibDatabase::IsLibFileExist(LibFileStruct LibFile)
+SmpLibDatabase::LIBFILERESULT SmpLibDatabase::IsLibFileExist(const LibFileStruct& LibFile)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     //LibFile is not in the database yet?
     QSqlQuery query(db);
     QString sSelQuery = "select ID, filehash from tblLibFiles where (filepath IS NULL and filename=:filename) or (filepath=:filepath and filename=:filename);";
@@ -203,23 +207,41 @@ SmpLibDatabase::LIBFILERESULT SmpLibDatabase::IsLibFileExist(LibFileStruct LibFi
         return NOT_EXIST;
 }
 
-void SmpLibDatabase::AddLibFile(LibFileStruct LibFile)
+void SmpLibDatabase::RemoveBrokenEntries(int libfile_id)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     QSqlQuery query(db);
-    query.prepare("INSERT INTO tblLibFiles (filepath, filename, filehash) VALUES (:filepath, :filename, :filehash);");
-    query.bindValue(":filepath", QVariant(LibFile.filepath));
-    query.bindValue(":filename", QVariant(LibFile.filename));
-    query.bindValue(":filehash", QVariant(LibFile.filehash));
-
+    query.prepare("DELETE from tblBook where libfile_id = :libfile_id;");
+    query.bindValue(":libfile_id", QVariant(libfile_id));
     query.exec();
-    auto err = query.lastError().text();
-    QString qs = query.executedQuery();
+
+    query.prepare("DELETE from tblLibFiles where id = :libfile_id;");
+    query.bindValue(":libfile_id", QVariant(libfile_id));
+    query.exec();
 }
 
-void SmpLibDatabase::UpdateLibFile(LibFileStruct LibFile)
+
+int SmpLibDatabase::AddLibFile(const LibFileStruct& LibFile)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     QSqlQuery query(db);
-    query.prepare("UPDATE tblLibFiles SET (filehash = ':filehash') WHERE id = :id;");
+    query.prepare("INSERT INTO tblLibFiles (filepath, filename) VALUES (:filepath, :filename);");
+    query.bindValue(":filepath", QVariant(LibFile.filepath));
+    query.bindValue(":filename", QVariant(LibFile.filename));
+    //query.bindValue(":filehash", QVariant(LibFile.filehash));
+
+    query.exec();    
+    auto err = query.lastError().text();
+    QString qs = query.executedQuery();
+
+    return query.lastInsertId().toInt();
+}
+
+void SmpLibDatabase::UpdateLibFileHash(const LibFileStruct& LibFile)
+{
+    std::lock_guard<std::mutex> guard(lockReading);
+    QSqlQuery query(db);
+    query.prepare("UPDATE tblLibFiles SET filehash = :filehash WHERE id = :id;");
     query.bindValue(":filehash", QVariant(LibFile.filehash));
     query.bindValue(":id", QVariant(LibFile.id));
 
@@ -227,8 +249,22 @@ void SmpLibDatabase::UpdateLibFile(LibFileStruct LibFile)
 }
 
 
-int SmpLibDatabase::GetLibFileIdByPathName(LibFileStruct LibFile)
+QString SmpLibDatabase::GetLibFileHashByPathName(const LibFileStruct& LibFile)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
+    //get libfile hash
+    QSqlQuery query(db);
+    query.prepare("select filehash from tblLibFiles where (filepath=:filepath and filename=:filename);");
+    query.bindValue(":filepath", QVariant(LibFile.filepath));
+    query.bindValue(":filename", QVariant(LibFile.filename));
+    query.exec();
+    query.next();
+    return query.value(0).toString();
+}
+
+int SmpLibDatabase::GetLibFileIdByPathName(const LibFileStruct& LibFile)
+{
+    std::lock_guard<std::mutex> guard(lockReading);
     //get libfile id
     QSqlQuery query(db);
     query.prepare("select id from tblLibFiles where (filepath=:filepath and filename=:filename);");
@@ -241,6 +277,7 @@ int SmpLibDatabase::GetLibFileIdByPathName(LibFileStruct LibFile)
 
 std::unique_ptr<SmpLibDatabase::LibFileStruct> SmpLibDatabase::GetLibFile(int libfile_id)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     std::unique_ptr<LibFileStruct> LibFile = nullptr;
     QSqlQuery query(db);
     QString qsQuery = "select * from tblLibFiles where ID = %1;";
@@ -260,8 +297,9 @@ std::unique_ptr<SmpLibDatabase::LibFileStruct> SmpLibDatabase::GetLibFile(int li
     return LibFile;
 }
 
-bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
+bool SmpLibDatabase::IsAuthorExist(const AuthorStruct& Author)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     //author is not in the database yet?
     QSqlQuery query(db);
     QString sSelQuery = "select COUNT(id) from tblAuthor where (first_name IS NOT NULL OR last_name IS NOT NULL OR nickname IS NOT NULL) and (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name) and (nickname IS NULL OR nickname=:nickname);";
@@ -269,6 +307,7 @@ bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
     query.bindValue(":first_name", QVariant(Author.first_name));
     query.bindValue(":last_name", QVariant(Author.last_name));
     query.bindValue(":nickname", QVariant(Author.nickname));
+
     query.exec();
     qDebug() << db.lastError().text();
     query.next();
@@ -277,8 +316,9 @@ bool SmpLibDatabase::IsAuthorExist(AuthorStruct Author)
     return rec_count > 0;
 }
 
-void SmpLibDatabase::AddAuthor(AuthorStruct Author)
+void SmpLibDatabase::AddAuthor(const AuthorStruct& Author)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     db.transaction();
     QSqlQuery query(db);
     query.prepare("INSERT INTO tblAuthor (first_name, last_name, nickname) VALUES (:first_name, :last_name, :nickname);");
@@ -295,9 +335,9 @@ void SmpLibDatabase::AddAuthor(AuthorStruct Author)
     //QMessageLogger.warning(db.lastError().text());
 }
 
-int SmpLibDatabase::GetAuthorIdByName(AuthorStruct Author)
+int SmpLibDatabase::GetAuthorIdByName(const AuthorStruct& Author)
 {
-
+    std::lock_guard<std::mutex> guard(lockReading);
     //get author id
     QSqlQuery query(db);
     query.prepare("select id from tblAuthor where (first_name IS NOT NULL OR last_name IS NOT NULL OR nickname IS NOT NULL) and (first_name IS NULL OR first_name=:first_name) and (last_name IS NULL OR last_name=:last_name) and (nickname IS NULL OR nickname=:nickname);");
@@ -313,6 +353,7 @@ int SmpLibDatabase::GetAuthorIdByName(AuthorStruct Author)
 
 std::unique_ptr<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorById(int idAuthor)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     QSqlQuery query(db);
     QString qsQuery = "select * from tblAuthor where id = %1 " ;
     //qsQuery = "select * from tblAuthor";
@@ -334,8 +375,9 @@ std::unique_ptr<SmpLibDatabase::AuthorStruct> SmpLibDatabase::GetAuthorById(int 
 }
 
 
-std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> SmpLibDatabase::GetAuthorList(QString qsFilter)
+std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> SmpLibDatabase::GetAuthorList(const QString& qsFilter)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     auto ListA = std::make_unique<QList<AuthorStruct>>();
     QSqlQuery query(db);
     QString qsQuery = "select * from tblAuthor where (first_name like %1%3%2%1 OR last_name like %1%3%2%1 OR nickname like %1%3%2%1) " ;
@@ -358,8 +400,9 @@ std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> SmpLibDatabase::GetAuthorLi
 }
 
 
-bool SmpLibDatabase::IsBookExist(QString AuthorIds, QString qsBookTitle)
+bool SmpLibDatabase::IsBookExist(const QString& AuthorIds, const QString& qsBookTitle)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     QSqlQuery query(db);
     query.prepare("select COUNT(ID) from tblBook where authors=:authors and book_title=:book_title;");
     query.bindValue(":authors", QVariant(AuthorIds));
@@ -370,9 +413,9 @@ bool SmpLibDatabase::IsBookExist(QString AuthorIds, QString qsBookTitle)
     return rec_count > 0;
 }
 
-void SmpLibDatabase::AddBook(BookStruct Book)
+void SmpLibDatabase::AddBook(const BookStruct& Book)
 {
-
+    std::lock_guard<std::mutex> guard(lockReading);
     QSqlQuery query(db);
     query.prepare("INSERT INTO tblBook (authors, book_title, genre, sequence_name, sequence_number, libfile_id, name_in_archive, book_size) "
                   "VALUES (:authors, :book_title, :genre, :sequence_name, :sequence_number, :libfile_id, :name_in_archive, :book_size);");
@@ -389,8 +432,9 @@ void SmpLibDatabase::AddBook(BookStruct Book)
     QString qs = query.executedQuery();
 }
 
-std::unique_ptr<QList<SmpLibDatabase::BookStruct>> SmpLibDatabase::GetBookList(QString qsFilter, QString qsAuthor)
+std::unique_ptr<QList<SmpLibDatabase::BookStruct>> SmpLibDatabase::GetBookList(const QString& qsFilter, const QString& qsAuthor)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     auto ListA =  std::make_unique<QList<BookStruct>>();
     QSqlQuery query(db);
     QString qsQuery = "select * from tblBook where book_title like %1%3%2%1 AND (authors LIKE %1%2,%4,%2%1);";
@@ -418,6 +462,7 @@ std::unique_ptr<QList<SmpLibDatabase::BookStruct>> SmpLibDatabase::GetBookList(Q
 
 std::unique_ptr<SmpLibDatabase::BookStruct> SmpLibDatabase::GetBook(int book_id)
 {
+    std::lock_guard<std::mutex> guard(lockReading);
     std::unique_ptr<BookStruct> Book = nullptr;
     QSqlQuery query(db);
     QString qsQuery = "select * from tblBook where ID = %1;";

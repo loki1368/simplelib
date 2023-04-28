@@ -52,3 +52,4 @@ RESOURCES += \
     resource.qrc
 
 DISTFILES +=
+

@@ -14,6 +14,7 @@
 #include "parsebigzip.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QStringBuilder>
+#include <thread>
 
 
 
@@ -70,6 +71,8 @@ QString MainWindow::timeConversion(int msecs)
 
 QThreadPool *thread_pool = QThreadPool::globalInstance();
 
+int zipcountpassed = 0;
+
 static void aBigZipRun(QFileInfo fi, MainWindow* Parent)
 {
     Parent->ParseBigZipFunc(fi,Parent);
@@ -99,6 +102,24 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
     //auto db = std::make_unique<SmpLibDatabase>(m_sDBFile, m_DbEngine);
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
+
+    //add filepath into the database
+    //filepath is not yet in the database?
+    auto file_checksum = QString(fileChecksum(fi.absoluteFilePath(), QCryptographicHash::Md5));
+    SmpLibDatabase::LibFileStruct LibFile = {0, NULL,fi.fileName(), fi.absoluteDir().path(), file_checksum};
+    auto fileexist = db->IsLibFileExist(LibFile);
+
+    if(fileexist == SmpLibDatabase::LIBFILERESULT::EXIST)
+    {
+        return;
+    }
+    if(fileexist == SmpLibDatabase::LIBFILERESULT::WRONG_HASH)
+    {
+        auto id = db->GetLibFileIdByPathName(LibFile);
+        db->RemoveBrokenEntries(id);
+    }
+
+    LibFile.id = db->AddLibFile(LibFile); // lib file added without hash. hash will be written when file will be processed;
 
     foreach(QuaZipFileInfo fi2, ZipFI)
     {
@@ -192,16 +213,6 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
             author_id.append(db->GetAuthorIdByName(Author));
         }
 
-        //add filepath into the database
-        //filepath is not yet in the database?
-        auto file_checksum = QString(fileChecksum(fi.absoluteFilePath(), QCryptographicHash::Md5));
-        SmpLibDatabase::LibFileStruct LibFile = {0, NULL,fi.fileName(), fi.absoluteDir().path(), file_checksum};
-        if(!db->IsLibFileExist(LibFile))
-        {
-            db->AddLibFile(LibFile);
-        }
-        int libfile_id = db->GetLibFileIdByPathName(LibFile);
-
         //add book to the database
         //book is not in the database yet?
         timer_book->start();
@@ -217,7 +228,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
             Book.genre = genre;
             Book.sequence_name = sequence_name;
             Book.sequence_number = sequence_number;
-            Book.libfile_id = libfile_id;
+            Book.libfile_id = LibFile.id;
             Book.name_in_archive = fi2.name;
             Book.book_size = fi2.uncompressedSize;
             db->AddBook(Book);
@@ -233,6 +244,8 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
 
         QString stime_book2 = timeConversion(time_book);
     }
+
+    db->UpdateLibFileHash(LibFile); //set hash after processing
 }
 
 void MainWindow::fillAuthorList(QString qsFilter)

@@ -62,11 +62,13 @@ public:
         QString filepath;
         QString filehash;
     }LibFileStruct;
-    LIBFILERESULT IsLibFileExist(LibFileStruct LibFile);
-    void AddLibFile(LibFileStruct LibFile);
-    void UpdateLibFile(LibFileStruct LibFile);
-    int GetLibFileIdByPathName(LibFileStruct LibFile);
-    QList<LibFileStruct> GetLibFilesList(QString qsFilter);
+    LIBFILERESULT IsLibFileExist(const LibFileStruct& LibFile);
+    void RemoveBrokenEntries(int libfile_id);
+    int AddLibFile(const LibFileStruct& LibFile);
+    void UpdateLibFileHash(const LibFileStruct& LibFile);
+    int GetLibFileIdByPathName(const LibFileStruct& LibFile);
+    QString GetLibFileHashByPathName(const LibFileStruct& LibFile);
+    QList<LibFileStruct> GetLibFilesList(const LibFileStruct& qsFilter);
     std::unique_ptr<LibFileStruct> GetLibFile(int libfile_id);
     //author
     typedef struct
@@ -76,13 +78,13 @@ public:
         QString last_name;
         QString nickname;
     }AuthorStruct;
-    bool IsAuthorExist(AuthorStruct Author);
-    void AddAuthor(AuthorStruct Author);
-    int GetAuthorIdByName(AuthorStruct Author);
+    bool IsAuthorExist(const AuthorStruct& Author);
+    void AddAuthor(const AuthorStruct& Author);
+    int GetAuthorIdByName(const AuthorStruct& Author);
     std::unique_ptr<SmpLibDatabase::AuthorStruct> GetAuthorById(int idAuthor);
-    std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> GetAuthorList(QString qsFilter);
+    std::unique_ptr<QList<SmpLibDatabase::AuthorStruct>> GetAuthorList(const QString& qsFilter);
     //book
-    bool IsBookExist(QString AuthorIds, QString qsBookTitle);
+    bool IsBookExist(const QString& AuthorIds, const QString& qsBookTitle);
     typedef struct
     {
         int id;
@@ -95,8 +97,8 @@ public:
         QString name_in_archive;
         int book_size;
     }BookStruct;
-    void AddBook(BookStruct Book);
-    std::unique_ptr<QList<SmpLibDatabase::BookStruct>> GetBookList(QString qsFilter, QString qsAuthor);
+    void AddBook(const BookStruct& Book);
+    std::unique_ptr<QList<SmpLibDatabase::BookStruct>> GetBookList(const QString& qsFilter, const QString& qsAuthor);
     std::unique_ptr<BookStruct> GetBook(int BookId);
     void DropTables();
 
