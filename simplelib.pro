@@ -6,9 +6,9 @@
 
 
 
-greaterThan(QT_MAJOR_VERSION, 4){
-    QT += widgets core gui sql concurrent
-    DEFINES += HAVE_QT5
+greaterThan(QT_MAJOR_VERSION, 5){
+    QT += widgets core gui sql concurrent core5compat
+    DEFINES += HAVE_QT6
 }
 
 CONFIG += c++17

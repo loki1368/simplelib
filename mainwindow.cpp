@@ -5,16 +5,14 @@
 #include<QByteArray>
 #include "quazip/quazip.h"
 #include "quazip/quazipfile.h"
-#include "quazip/JlCompress.h"
 #include <QXmlStreamReader>
 #include <QtWidgets>
-#include <QtXmlPatterns/QXmlQuery>
+//#include <QtXmlPatterns/QXmlQuery>
 #include <QElapsedTimer>
 #include <QMessageBox>
-#include "parsebigzip.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QStringBuilder>
-#include <thread>
+#include <QRegExp>
 
 
 
@@ -26,13 +24,26 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf-8"));
     QDir Dir;
-    if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]))
-        Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0]);
-    m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::DataLocation)[0] + "/smplib.db";    
-    m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");    
+    if(!Dir.exists(QStandardPaths::standardLocations(QStandardPaths::AppDataLocation).constFirst()))
+        Dir.mkdir(QStandardPaths::standardLocations(QStandardPaths::AppDataLocation).constFirst());
+    m_sDBFile = QStandardPaths::standardLocations(QStandardPaths::AppDataLocation).constFirst() + "/smplib.db";
+    m_sSettings = new QSettings(QSettings::NativeFormat, QSettings::UserScope, "simplelib", "simplelib");
     m_DbEngine = m_sSettings->value("DbEngine", 0).toInt();
 
+    connect(ui->lineAuthorFind, &QLineEdit::returnPressed, this, &MainWindow::OnLineAuthorFindReturnPressed);
+    connect(ui->listAuthor, &QListWidget::itemSelectionChanged, this, &MainWindow::OnListAuthorItemSelectionChanged);
+    connect(ui->tableBook, &QTableWidget::customContextMenuRequested, this, &MainWindow::OnTableWidgetCustomContextMenuRequested);
+
+    //connect menu
+    connect(ui->actionExit, &QAction::triggered, this, &MainWindow::OnMenuActionExit);
+    connect(ui->actionPreferences, &QAction::triggered, this, &MainWindow::OnMenuActionPreferences);
+    //connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::OnMenuActionAbout);
+    connect(ui->actionUpdateDB, &QAction::triggered, this, &MainWindow::OnMenuActionUpdateDB);
+    connect(ui->actionRescanDB, &QAction::triggered, this, &MainWindow::OnMenuActionRescanDB);
+    connect(ui->actionClearDB, &QAction::triggered, this, &MainWindow::OnMenuActionClearDB);
+
     m_DlgSettings = new SettingsDialog(this);
+    this->setWindowState(Qt::WindowMaximized);
 }
 
 MainWindow::~MainWindow()
@@ -153,38 +164,36 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
                continue;
            }
 
-            if (reader.isStartElement() && reader.name() == "author") bAuthorBlock = true;
-            if (reader.isEndElement() && reader.name() == "author") bAuthorBlock = false;
+           if (reader.isStartElement() && reader.name() == QString("author")) bAuthorBlock = true;
+           if (reader.isEndElement() && reader.name() == QString("author")) bAuthorBlock = false;
 
-            if (reader.isStartElement() && reader.name() == "first-name" && bAuthorBlock)
+           if (reader.isStartElement() && reader.name() == QString("first-name") && bAuthorBlock)
             {
                 first_name.append(reader.readElementText().trimmed());
             }
-            else if (reader.isStartElement() && reader.name() == "last-name" && bAuthorBlock)
+            else if (reader.isStartElement() && reader.name() == QString("last-name") && bAuthorBlock)
             {
                 last_name.append(reader.readElementText().trimmed());
             }
-            else if (reader.isStartElement() && reader.name() == "book-title" && book_title.isEmpty())
+            else if (reader.isStartElement() && reader.name() == QString("book-title") && book_title.isEmpty())
             {
                 book_title = reader.readElementText();
             }
-            else if (reader.isStartElement() && reader.name() == "genre")
+            else if (reader.isStartElement() && reader.name() == QString("genre"))
             {
                 genre = reader.readElementText();
             }
-            else if (reader.isStartElement() && reader.name() == "sequence")
+            else if (reader.isStartElement() && reader.name() == QString("sequence"))
             {
-                foreach(const QXmlStreamAttribute &attr, reader.attributes())
-                {
-                    if (attr.name().toString() == QLatin1String("name")) {
-                        sequence_name = attr.value().toString();
-                    }
-                    else if (attr.name().toString() == QLatin1String("number")) {
-                        sequence_number = attr.value().toString();
-                    }
-                }
+                auto attrs = reader.attributes();
+
+                if(attrs.hasAttribute(QLatin1String("name")))
+                    sequence_name = attrs.value(QLatin1String("name")).toString();
+
+                if(attrs.hasAttribute(QLatin1String("number")))
+                    sequence_number = attrs.value(QLatin1String("number")).toString();
             }
-            else if(reader.isEndElement() && reader.name() == "title-info")
+            else if(reader.isEndElement() && reader.name() == QString("title-info"))
                 break;
             else
                 continue;
@@ -202,7 +211,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
         }
         if(Authors.length() == 0)//no author
             Authors.append({0,"","Без автора", ""});
-        //because more than 2 artists is unnatural        
+        //because more than 2 artists is unnatural
         QList<int> author_id;
         for(const auto &Author: Authors)
         {
@@ -222,7 +231,7 @@ void MainWindow::ParseBigZipFunc(QFileInfo fi, MainWindow*/* Parent*/)
         if(!db->IsBookExist(authorlist, book_title))
         {
             timer_author->start();
-            SmpLibDatabase::BookStruct Book;            
+            SmpLibDatabase::BookStruct Book;
             Book.authors = authorlist;
             Book.book_title = book_title;
             Book.genre = genre;
@@ -253,7 +262,7 @@ void MainWindow::fillAuthorList(QString qsFilter)
     QApplication::setOverrideCursor(Qt::WaitCursor);
     QApplication::processEvents();
 
-    ui->listWidget->clear();
+    ui->listAuthor->clear();
 
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
     auto AuthorList = db->GetAuthorList(qsFilter);
@@ -269,10 +278,22 @@ void MainWindow::fillAuthorList(QString qsFilter)
              sAuthorLine = Author.last_name;
          QListWidgetItem* item = new QListWidgetItem(sAuthorLine);
          item->setData(1,Author.id);
-         ui->listWidget->addItem(item);
+         ui->listAuthor->addItem(item);
     }
     //delete &AuthorList;
     QApplication::restoreOverrideCursor();
+}
+
+namespace BookTableColumns
+{
+    enum
+    {
+        BookName = 0,
+        Serie = 1,
+        Size = 2,
+        BookId = 3
+    };
+    static QStringList Labels = QStringList()<<QString("Название книги")<<QString("Серия")<<QString("Размер")<<QString("");
 }
 
 void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
@@ -280,27 +301,29 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
     QApplication::setOverrideCursor(Qt::WaitCursor);
     QApplication::processEvents();
 
-    ui->tableWidget->clearContents();
-    ui->tableWidget->setRowCount(0);
-    if(ui->tableWidget->columnCount() != 4)
-    {
-        ui->tableWidget->insertColumn(0);
-        ui->tableWidget->setColumnWidth(0,400);
-        ui->tableWidget->insertColumn(1);
-        ui->tableWidget->setColumnWidth(0,500);
-        ui->tableWidget->insertColumn(2);
-        ui->tableWidget->setColumnWidth(2,100);
-        ui->tableWidget->setHorizontalHeaderLabels( QStringList()<<QString("Название книги")<<QString("Серия")<<QString("Размер"));
+    ui->tableBook->clear();
+    ui->tableBook->setRowCount(0);
+    ui->tableBook->setSortingEnabled(false);
 
-        ui->tableWidget->insertColumn(3);
-        ui->tableWidget->setColumnWidth(3,0);
+    if(ui->tableBook->columnCount() != 4)
+    {
+        ui->tableBook->insertColumn(BookTableColumns::BookName);
+        ui->tableBook->setColumnWidth(BookTableColumns::BookName,450);
+        ui->tableBook->insertColumn(BookTableColumns::Serie);
+        ui->tableBook->setColumnWidth(BookTableColumns::Serie,250);
+        ui->tableBook->insertColumn(BookTableColumns::Size);
+        ui->tableBook->setColumnWidth(BookTableColumns::Size,100);
+        ui->tableBook->insertColumn(BookTableColumns::BookId);
+        ui->tableBook->setColumnWidth(BookTableColumns::BookId,0);
+        ui->tableBook->horizontalHeader()->setStretchLastSection(true);
+        ui->tableBook->setHorizontalHeaderLabels( BookTableColumns::Labels);
     }
 
     SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
     auto BookList = db->GetBookList(qsFilter, qsAuthor);
 
     foreach (SmpLibDatabase::BookStruct Book, *BookList)
-    {         
+    {
          QString book_id = QString::number(Book.id);
          QString book_title = Book.book_title;
          QString sequence_name = Book.sequence_name;
@@ -313,28 +336,30 @@ void MainWindow::fillBookList(QString qsAuthor, QString qsFilter)
          item->data(Qt::CheckStateRole);
          item->setCheckState(Qt::Unchecked);
 
-         ui->tableWidget->insertRow(0);
-         ui->tableWidget->setItem(0, 0, item);
+         ui->tableBook->insertRow(0);
+         ui->tableBook->setItem(0, BookTableColumns::BookName, item);
 
          item = new QTableWidgetItem();
          if(sequence_number != "" && sequence_number != "0")
             item->setText(sequence_name + " " + sequence_number);
          else
             item->setText(sequence_name);
-         ui->tableWidget->setItem(0, 1, item);
+         ui->tableBook->setItem(0, BookTableColumns::Serie, item);
 
          item = new QTableWidgetItem();
          item->setText(QString::number(book_size/1024) + "Kb");
-         ui->tableWidget->setItem(0, 2, item);
+         ui->tableBook->setItem(0, BookTableColumns::Size, item);
 
          item = new QTableWidgetItem();
-         item->setText(book_id);
-         ui->tableWidget->setItem(0, 3, item);
-    }
-    ui->tableWidget->sortByColumn(0, Qt::SortOrder::AscendingOrder);
-    ui->tableWidget->sortByColumn(1, Qt::SortOrder::AscendingOrder);
+         item->setData(Qt::UserRole, book_id);
+         ui->tableBook->setItem(0, BookTableColumns::BookId, item);
 
-    //delete &BookList;new
+    }
+
+    ui->tableBook->sortByColumn(0, Qt::SortOrder::AscendingOrder);
+    ui->tableBook->sortByColumn(1, Qt::SortOrder::AscendingOrder);
+    ui->tableBook->setSortingEnabled(true);
+
 
     QApplication::restoreOverrideCursor();
 }
@@ -359,15 +384,10 @@ void MainWindow::show()
     QTimer::singleShot(50, this, SLOT(TryFillAuthorList()));
 }
 
-void MainWindow::on_lineEdit_returnPressed()
-{
-    fillAuthorList(ui->lineEdit->text());
-}
 
-
-void MainWindow::on_listWidget_itemSelectionChanged()
+void MainWindow::OnListAuthorItemSelectionChanged()
 {
-    QList<QListWidgetItem*> List = ui->listWidget->selectedItems();
+    QList<QListWidgetItem*> List = ui->listAuthor->selectedItems();
     if(List.count() > 0)
     {
         QListWidgetItem* item = List[0];
@@ -375,8 +395,6 @@ void MainWindow::on_listWidget_itemSelectionChanged()
         fillBookList(author_id);
     }
 }
-
-int rowPopup;
 
 void MainWindow::GetBookFromLib(int book_id, QByteArray& BookData,
                                 std::unique_ptr<SmpLibDatabase::BookStruct>& Book,
@@ -413,9 +431,10 @@ void MainWindow::GetBookFromLib(int book_id, QByteArray& BookData,
     }
 }
 
-void MainWindow::on_BookGridRow_OpenBook()
+void MainWindow::OnBookGridRowOpenBook()
 {
-    int book_id = ui->tableWidget->item(rowPopup, 3)->text().toInt();//get book id from column 2
+    auto currow = ui->tableBook->currentItem()->row();
+    int book_id = ui->tableBook->item(currow, BookTableColumns::BookId)->data(Qt::UserRole).toInt();
     QByteArray BookData;
     std::unique_ptr<SmpLibDatabase::BookStruct> Book = nullptr;
     std::unique_ptr<SmpLibDatabase::LibFileStruct> LibFile = nullptr;
@@ -429,7 +448,7 @@ void MainWindow::on_BookGridRow_OpenBook()
         QTemporaryFile tmpFile;
         QString filename2 = "";
         QString filename3 = filename;
-        filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
+        filename2 = filename.replace( QRegularExpression("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
         if(filename3 != filename)
         {//set alternate filename if name is broken
             tmpFile.setFileTemplate(QDir::tempPath() + "/XXXXXX_" + Book->sequence_name.trimmed() + "_" + Book->sequence_number.trimmed() + "_" + Book->book_title + "_" + ".fb2");
@@ -448,19 +467,23 @@ void MainWindow::on_BookGridRow_OpenBook()
         m_tmpFile->close();
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_tmpFile->fileName()));
 
-        QtConcurrent::run([&](QString filename){
+        auto ret = QtConcurrent::run([&](QString filename){
                     QThread::sleep(5);
                     QFile::remove(filename);
             }, m_tmpFile->fileName());
     }
 }
 
-void MainWindow::on_BookGridRow_ExportSelection()
+void MainWindow::OnBookGridRowExportSelection()
 {
-    QItemSelectionModel *select = ui->tableWidget->selectionModel();
-    for(QModelIndex &li: select->selectedRows())
+    static auto FileNameRegExp = QRegularExpression("[^a-zA-Z0-9 _-().{}+=<>#$:%&*]");
+
+    QItemSelectionModel *select = ui->tableBook->selectionModel();
+    for(const auto &li: select->selectedRows(BookTableColumns::BookId))
     {
-        int book_id = ui->tableWidget->item(li.row(), 3)->text().toInt();//get book id from column 2
+        int book_id = 0;
+        book_id = li.data(Qt::UserRole).toInt();
+
         QByteArray BookData;
         std::unique_ptr<SmpLibDatabase::BookStruct> Book = nullptr;
         std::unique_ptr<SmpLibDatabase::LibFileStruct> LibFile = nullptr;
@@ -475,8 +498,8 @@ void MainWindow::on_BookGridRow_ExportSelection()
             //save to temp file
             QString sFile;
             QString filename2 = "";
-            QString filename3 = filename;
-            filename2 = filename.replace( QRegExp("[^a-zA-Z0-9 _-().{}+=<>#$%&*]"),filename2);
+            //QString filename3 = filename;
+            filename2 = filename.replace( FileNameRegExp, filename2);
 
 
             /*if(filename3 != filename)
@@ -494,7 +517,7 @@ void MainWindow::on_BookGridRow_ExportSelection()
                         Book->sequence_name.trimmed(),
                         Book->sequence_number.trimmed(),
                         Book->book_title.trimmed()};
-            for(auto part : nameParts)
+            for(const auto& part : nameParts)
             {
                 if(part != "")
                 {
@@ -504,7 +527,7 @@ void MainWindow::on_BookGridRow_ExportSelection()
             }
             sFile = sFile.left(sFile.length() - 1);
 
-            QFile tmpFile(sFile);
+            QFile tmpFile(sFile + ".fb2");
             if (tmpFile.open(QIODevice::WriteOnly))
             {
                 tmpFile.write(BookData);
@@ -514,19 +537,17 @@ void MainWindow::on_BookGridRow_ExportSelection()
     }
 }
 
-void MainWindow::on_tableWidget_customContextMenuRequested(const QPoint &pos)
+void MainWindow::OnTableWidgetCustomContextMenuRequested(const QPoint &pos)
 {
-    QModelIndex indexPopup=ui->tableWidget->indexAt(pos);
-    rowPopup = indexPopup.row();
-
-    QMenu *menu=new QMenu(this);
-    menu->addAction("Открыть книгу", this, SLOT(on_BookGridRow_OpenBook()));
-    menu->addAction("Экспорт", this, SLOT(on_BookGridRow_ExportSelection()));
-    menu->popup(ui->tableWidget->viewport()->mapToGlobal(pos));
+    auto menu = new QMenu();
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    menu->addAction(tr("Открыть книгу"), this, SLOT(OnBookGridRowOpenBook()));
+    menu->addAction(tr("Экспорт"), this, SLOT(OnBookGridRowExportSelection()));
+    menu->popup(ui->tableBook->viewport()->mapToGlobal(pos));
 }
 
-void MainWindow::on_actionPreferences_triggered()
-{ 
+void MainWindow::OnMenuActionPreferences()
+{
     m_DlgSettings->setModal(true);
     m_DlgSettings->exec();
     if(static_cast<QDialog::DialogCode>(m_DlgSettings->result()) == QDialog::Accepted)
@@ -535,7 +556,7 @@ void MainWindow::on_actionPreferences_triggered()
     }
 }
 
-void MainWindow::on_actionExit_triggered()
+void MainWindow::OnMenuActionExit()
 {
     this->close();
 }
@@ -555,7 +576,7 @@ void MainWindow::UpdateDB(bool /*bRescan*/)
 
     foreach(QFileInfo fi, List)
     {
-        QtConcurrent::run(aBigZipRun, fi, this);
+        auto ret = QtConcurrent::run(aBigZipRun, fi, this);
     }
     thread_pool->waitForDone();
 
@@ -567,24 +588,28 @@ void MainWindow::UpdateDB(bool /*bRescan*/)
     QApplication::restoreOverrideCursor();
 }
 
-void MainWindow::on_actionUpdateDB_triggered()
+void MainWindow::OnMenuActionUpdateDB()
 {
     UpdateDB(false);
 }
 
-void MainWindow::on_actionRescanDB_triggered()
+void MainWindow::OnMenuActionRescanDB()
 {
     UpdateDB(true);
 }
 
 
-void MainWindow::on_actionClearDB_triggered()
+void MainWindow::OnMenuActionClearDB()
 {
-    QMessageBox::StandardButton reply =
-            QMessageBox::question(this, "Внимание!",
-                          "Выбранное действие приведет к полной очистке базы данных. Вы уверены?",
-                          QMessageBox::Yes|QMessageBox::No);
-    if(reply == QMessageBox::Yes)
+    QMessageBox msgBox;
+    msgBox.setText("Выбранное действие приведет к полной очистке базы данных.");
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setInformativeText("Вы уверены?");
+    msgBox.setStandardButtons((QMessageBox::StandardButtons) QMessageBox::No | QMessageBox::Yes);
+    msgBox.setDefaultButton(QMessageBox::No);
+    int ret = msgBox.exec();
+
+    if(ret == QMessageBox::Yes)
     {
         SmpLibDatabase* db = SmpLibDatabase::instance(m_sDBFile, m_DbEngine);
         db->DropTables();
@@ -605,3 +630,9 @@ QString MainWindow::fileChecksum(const QString &fileName,
     }
     return QString("");
 }
+
+void MainWindow::OnLineAuthorFindReturnPressed()
+{
+    fillAuthorList(ui->lineAuthorFind->text());
+}
+

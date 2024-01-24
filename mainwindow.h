@@ -4,9 +4,8 @@
 #include <QMainWindow>
 #include <QFileInfo>
 #include "smplibdatabase.h"
-#include "ui_mainwindow.h"
+//#include "ui_mainwindow.h"
 #include <QSettings>
-#include "quazip/quazip.h"
 #include <QRunnable>
 #include "settingsdialog.h"
 #include <QCryptographicHash>
@@ -26,25 +25,25 @@ public:
     ~MainWindow();
     void show();
     void resizeEvent(QResizeEvent* event);
-    void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);    
+    void ParseBigZipFunc(QFileInfo fi, MainWindow* Parent);
 
 private slots:
 
-    void on_lineEdit_returnPressed();
-    void on_listWidget_itemSelectionChanged();        
-    void on_tableWidget_customContextMenuRequested(const QPoint &pos);
+    void OnLineAuthorFindReturnPressed();
+    void OnListAuthorItemSelectionChanged();
+    void OnTableWidgetCustomContextMenuRequested(const QPoint &pos);
 
-    void on_BookGridRow_OpenBook();
-    void on_BookGridRow_ExportSelection();
+    void OnBookGridRowOpenBook();
+    void OnBookGridRowExportSelection();
 
-    void on_actionPreferences_triggered();
+    void OnMenuActionPreferences();
 
-    void on_actionExit_triggered();
+    void OnMenuActionExit();
 
-    void on_actionUpdateDB_triggered();
-    void on_actionRescanDB_triggered();
+    void OnMenuActionUpdateDB();
+    void OnMenuActionRescanDB();
 
-    void on_actionClearDB_triggered();
+    void OnMenuActionClearDB();
 
     void TryFillAuthorList();
 
@@ -64,7 +63,7 @@ private:
     void UpdateDB(bool bRescan);
     QString fileChecksum(const QString &fileName, QCryptographicHash::Algorithm hashAlgorithm);
 
-    QString timeConversion(int msecs);    
+    QString timeConversion(int msecs);
 };
 
 

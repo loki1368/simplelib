@@ -27,7 +27,7 @@ quazip/(un)zip.h files for details, basically it's zlib license.
 
 #include <QString>
 #include <QStringList>
-#include <QTextCodec>
+#include <QtCore5Compat/QTextCodec>
 
 #include "zip.h"
 #include "unzip.h"
@@ -290,9 +290,9 @@ class QUAZIP_EXPORT QuaZip {
     QString getComment() const;
     /// Sets the global comment in the ZIP file.
     /** The comment will be written to the archive on close operation.
-     * QuaZip makes a distinction between a null QByteArray() comment 
-     * and an empty &quot;&quot; comment in the QuaZip::mdAdd mode. 
-     * A null comment is the default and it means &quot;don't change 
+     * QuaZip makes a distinction between a null QByteArray() comment
+     * and an empty &quot;&quot; comment in the QuaZip::mdAdd mode.
+     * A null comment is the default and it means &quot;don't change
      * the comment&quot;. An empty comment removes the original comment.
      *
      * \sa open()

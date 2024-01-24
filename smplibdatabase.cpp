@@ -26,10 +26,11 @@ SmpLibDatabase* SmpLibDatabase::CreateSmpLibDatabase(QString dbPath, int Engine)
 
     QString strThread = QString("%1").arg((long)QThread::currentThread());
     _db->db = QSqlDatabase::addDatabase(DbEngines[Engine],strThread);
+    auto isa = _db->db.drivers();
     bool bValidDb = false;
 
     if(Engine==(int)DB_ENGINES::QMARIADB)//QMYSQL
-    {        
+    {
         _db->db.setDatabaseName("smplib");
         _db->db.setUserName("smplib");
         _db->db.setPassword("smplib");
@@ -40,7 +41,7 @@ SmpLibDatabase* SmpLibDatabase::CreateSmpLibDatabase(QString dbPath, int Engine)
         }
     }
     else if(Engine==(int)DB_ENGINES::QSQLITE)//QSQLITE
-    {        
+    {
         _db->db.setDatabaseName(dbPath);
         _db->db.setUserName("smplib");
         _db->db.setPassword("smplib");
@@ -53,6 +54,8 @@ SmpLibDatabase* SmpLibDatabase::CreateSmpLibDatabase(QString dbPath, int Engine)
 
     if(!bValidDb)
     {
+        auto err = _db->db.lastError().text();
+        qDebug() << err;
         delete _db;
         _db = nullptr;
     }
@@ -77,7 +80,7 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                                "`first_name` VARCHAR(50) NULL,"
                                "`last_name` VARCHAR(100) NULL,"
                                "`nickname` VARCHAR(100) NULL"
-                               );    
+                               );
     tblMap.insert("tblLibFiles", "`id` INT(11) NOT NULL AUTO_INCREMENT,"
                              "PRIMARY KEY (`id`),"
                              "`lib_title` VARCHAR(255) NULL,"
@@ -101,7 +104,7 @@ void SmpLibDatabase::CreateTables(bool bRecreate)
                                );
 
 
-    QSqlQuery query(db);    
+    QSqlQuery query(db);
     foreach(QString sTable, lstTables)
     {
         db.transaction();
@@ -129,7 +132,7 @@ void SmpLibDatabase::CreateTablesSqlite(bool bRecreate)
                                "`first_name` NVARCHAR(50) NULL,"
                                "`last_name` NVARCHAR(100) NULL,"
                                "`nickname` NVARCHAR(100) NULL"
-                               );    
+                               );
     tblMap.insert("tblLibFiles", "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                              "`lib_title` NVARCHAR(255) NULL,"
                              "`filename` VARCHAR(50) NOT NULL,"
@@ -230,7 +233,7 @@ int SmpLibDatabase::AddLibFile(const LibFileStruct& LibFile)
     query.bindValue(":filename", QVariant(LibFile.filename));
     //query.bindValue(":filehash", QVariant(LibFile.filehash));
 
-    query.exec();    
+    query.exec();
     auto err = query.lastError().text();
     QString qs = query.executedQuery();
 
